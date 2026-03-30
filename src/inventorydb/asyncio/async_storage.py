@@ -1,0 +1,13 @@
+from typing import List, Protocol, runtime_checkable
+
+
+@runtime_checkable
+class AsyncInventoryStorage(Protocol):
+
+    async def aselect(self, inventory_type: str) -> List[dict]: ...
+
+    async def aread(self, inventory_type: str, id: str) -> dict: ...
+
+    async def awrite(self, inventory_type: str, item: dict) -> bool: ...
+
+    async def adelete(self, inventory_type: str, id: str) -> bool: ...

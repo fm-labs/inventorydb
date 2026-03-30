@@ -1,0 +1,13 @@
+from typing import List, Protocol, runtime_checkable
+
+
+@runtime_checkable
+class InventoryStorage(Protocol):
+
+    def select(self, inventory_type: str) -> List[dict]: ...
+
+    def read(self, inventory_type: str, id: str) -> dict: ...
+
+    def write(self, inventory_type: str, item: dict) -> bool: ...
+
+    def delete(self, inventory_type: str, id: str) -> bool: ...
