@@ -12,7 +12,7 @@ __No thrills__ - **just a simple key-value store for serializable Python objects
 - Basic CRUD operations: `save`, `get`, `filter`, `patch`, `delete`
 - Multiple storage adapters (in-memory, file-based, SQLite, Redis, MongoDB)
 - Optional Pydantic model validation with `PydanticInventory`
-- Async support with some storage adapters (e.g. `AsyncRedisInventoryStorage`)
+- Async support via `AsyncInventory` with async storage adapters (in-memory, Redis)
 - Easy FastAPI integration with dependency injection
 
 
@@ -193,21 +193,28 @@ print(item.done)              # False
 
 ## Async Usage
 
-`AsyncRedisInventoryStorage` provides a fully async API for use with `asyncio`.
-All methods are prefixed with `a` to distinguish them from sync equivalents.
+`AsyncInventory` has the same methods and behaviour as `Inventory`, but every
+method is a coroutine. It works with any `AsyncInventoryStorage` adapter:
+`AsyncRedisInventoryStorage`, or `InMemoryInventoryStorage` for tests.
 
 ```python
-import redis.asyncio as aioredis
+import redis.asyncio
+from inventorydb.asyncio.async_inventory import AsyncInventory
 from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage
 
-client = aioredis.Redis(host="localhost", port=6379, decode_responses=True)
-storage = AsyncRedisInventoryStorage(redis_client=client)
+client = redis.asyncio.Redis(host="localhost", port=6379)
+todos = AsyncInventory(item_type="todo", storage=AsyncRedisInventoryStorage(client))
 
-await storage.awrite("todo", {"id": "1", "title": "Buy milk"})
-item   = await storage.aread("todo", "1")
-items  = await storage.aselect("todo")
-deleted = await storage.adelete("todo", "1")
+await todos.save({"id": "1", "title": "Buy milk", "done": False})
+await todos.get("1")                   # → {"id": "1", "title": "Buy milk", "done": False}
+await todos.filter()                   # → [{"id": "1", ...}]
+await todos.patch("1", {"done": True}) # → {"id": "1", ..., "done": True}
+await todos.delete("1")                # → True
 ```
+
+Passing a sync-only adapter (e.g. `SQLiteInventoryStorage`) to `AsyncInventory`
+raises `TypeError`. The adapter methods (`aselect`, `aread`, `awrite`, `adelete`)
+can also be called directly on the storage.
 
 ---
 
@@ -221,12 +228,12 @@ once at startup and tear them down cleanly on shutdown.
 ```python
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-import redis.asyncio as aioredis
+import redis.asyncio
 from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    client = aioredis.Redis(host="localhost", port=6379, decode_responses=True)
+    client = redis.asyncio.Redis(host="localhost", port=6379)
     app.state.storage = AsyncRedisInventoryStorage(redis_client=client)
     yield
     await client.aclose()
@@ -234,25 +241,40 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 ```
 
-### 2. Inject `Inventory` with `Depends`
+### 2. Inject `AsyncInventory` with `Depends`
 
-Wrap the `Inventory` construction in a dependency function so routes stay clean
+Wrap the `AsyncInventory` construction in a dependency function so routes stay clean
 and the storage adapter is easy to swap out (e.g. in tests).
 
 ```python
-from fastapi import Depends, Request
-from inventorydb.inventory import Inventory
+from fastapi import Depends, HTTPException, Request
+from inventorydb.asyncio.async_inventory import AsyncInventory
+from inventorydb.errors import ItemNotFoundError
 
-def get_todos(request: Request) -> Inventory:
-    return Inventory(item_type="todo", storage=request.app.state.storage)
+def get_todos(request: Request) -> AsyncInventory:
+    return AsyncInventory(item_type="todo", storage=request.app.state.storage)
 
 @app.get("/todos")
-async def list_todos(todos: Inventory = Depends(get_todos)):
-    return await todos.storage.aselect("todo")
+async def list_todos(todos: AsyncInventory = Depends(get_todos)):
+    return await todos.filter()
+
+@app.get("/todos/{todo_id}")
+async def get_todo(todo_id: str, todos: AsyncInventory = Depends(get_todos)):
+    item = await todos.get(todo_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+    return item
 
 @app.post("/todos")
-async def create_todo(item: dict, todos: Inventory = Depends(get_todos)):
-    return todos.save(item)
+async def create_todo(item: dict, todos: AsyncInventory = Depends(get_todos)):
+    return await todos.save(item)
+
+@app.patch("/todos/{todo_id}")
+async def update_todo(todo_id: str, data: dict, todos: AsyncInventory = Depends(get_todos)):
+    try:
+        return await todos.patch(todo_id, data)
+    except ItemNotFoundError:
+        raise HTTPException(status_code=404)
 ```
 
 ### 3. Sync routes with SQLite
@@ -284,15 +306,19 @@ def list_todos(todos: Inventory = Depends(get_todos)):
 
 ### 4. Override the dependency in tests
 
-Swap the storage backend for the entire test run without touching any route code:
+Swap the storage backend for the entire test run without touching any route code.
+`InMemoryInventoryStorage` implements the async interface too, so it can stand in
+for Redis. Create it once so data persists across requests:
 
 ```python
-from inventorydb.inventory import Inventory
+from inventorydb.asyncio.async_inventory import AsyncInventory
 from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
 from fastapi.testclient import TestClient
 
+test_storage = InMemoryInventoryStorage()
+
 def override_todos():
-    return Inventory(item_type="todo", storage=InMemoryInventoryStorage())
+    return AsyncInventory(item_type="todo", storage=test_storage)
 
 app.dependency_overrides[get_todos] = override_todos
 client = TestClient(app)
@@ -304,7 +330,7 @@ client = TestClient(app)
 |---|---|
 | Single-process, low traffic | `SQLiteInventoryStorage` — zero deps, ACID, simple |
 | Multi-worker / multi-process | `RedisInventoryStorage` or `MongoDBInventoryStorage` |
-| Async routes | `AsyncRedisInventoryStorage` — non-blocking, fits the event loop |
+| Async routes | `AsyncInventory` + `AsyncRedisInventoryStorage` — non-blocking, fits the event loop |
 | Testing / local dev | `InMemoryInventoryStorage` — fast, no infrastructure needed |
 
 ---
