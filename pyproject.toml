@@ -25,7 +25,7 @@ license-files = ["LICEN[CS]E*"]
 
 [project.optional-dependencies]
 redis = ["redis>=6.0"]
-mongodb = ["pymongo>=4.9"]
+mongodb = ["pymongo>=4.13"]
 pydantic = ["pydantic>=2.8"]
 all = ["inventorydb[redis,mongodb,pydantic]"]
 

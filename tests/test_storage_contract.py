@@ -16,7 +16,7 @@ from collections.abc import AsyncIterator
 import pytest
 
 from inventorydb.asyncio.async_storage import AsyncInventoryStorage
-from inventorydb.interface import InventoryStorage
+from inventorydb.interface import InventoryStorage, Item
 from inventorydb.storage.file_storage import (
     DirectoryBasedInventoryStorage,
     FileBasedInventoryStorage,
@@ -268,9 +268,21 @@ async def _async_redis(request):
     return AsyncRedisInventoryStorage(client)
 
 
+async def _async_mongodb(request):
+    import pymongo
+
+    from inventorydb.asyncio.async_mongodb_storage import AsyncMongoDBInventoryStorage
+
+    url = request.getfixturevalue("mongo_container").get_connection_url()
+    client: pymongo.AsyncMongoClient[Item] = pymongo.AsyncMongoClient(url)
+    await client.drop_database("inventory")
+    return AsyncMongoDBInventoryStorage(client)
+
+
 ASYNC_ADAPTERS = [
     pytest.param(_async_inmemory, id="inmemory"),
     pytest.param(_async_redis, id="redis", marks=requires_docker),
+    pytest.param(_async_mongodb, id="mongodb", marks=requires_docker),
 ]
 
 
@@ -281,6 +293,9 @@ async def async_storage(request) -> AsyncIterator[AsyncInventoryStorage]:
     client = getattr(storage, "redis_client", None)
     if client is not None:
         await client.aclose()
+    mongo_client = getattr(storage, "mongo_client", None)
+    if mongo_client is not None:
+        await mongo_client.close()
 
 
 class TestAsyncStorageContract:

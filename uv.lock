@@ -307,7 +307,7 @@ dev = [
 requires-dist = [
     { name = "inventorydb", extras = ["redis", "mongodb", "pydantic"], marker = "extra == 'all'" },
     { name = "pydantic", marker = "extra == 'pydantic'", specifier = ">=2.8" },
-    { name = "pymongo", marker = "extra == 'mongodb'", specifier = ">=4.9" },
+    { name = "pymongo", marker = "extra == 'mongodb'", specifier = ">=4.13" },
     { name = "redis", marker = "extra == 'redis'", specifier = ">=6.0" },
 ]
 provides-extras = ["redis", "mongodb", "pydantic", "all"]

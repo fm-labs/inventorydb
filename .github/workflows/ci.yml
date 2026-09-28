@@ -90,6 +90,7 @@ jobs:
           --ignore=tests/test_redis_storage.py
           --ignore=tests/test_async_redis_storage.py
           --ignore=tests/test_mongodb_storage.py
+          --ignore=tests/test_async_mongodb_storage.py
 
   test-minimum-deps:
     name: Test (minimum dependency versions)

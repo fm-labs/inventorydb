@@ -12,7 +12,7 @@ __No thrills__ - **just a simple key-value store for serializable Python objects
 - Basic CRUD operations: `save`, `get`, `filter`, `keys`, `patch`, `delete`
 - Multiple storage adapters (in-memory, file-based, SQLite, Redis, MongoDB)
 - Optional Pydantic model validation with `PydanticInventory` / `AsyncPydanticInventory`
-- Async support via `AsyncInventory` with async storage adapters (in-memory, Redis)
+- Async support via `AsyncInventory` with async storage adapters (in-memory, Redis, MongoDB)
 - Easy FastAPI integration with dependency injection
 - Fully typed (ships `py.typed`), checked with `mypy --strict`
 
@@ -27,7 +27,7 @@ and SQLite storage work out of the box. Install extras for the other backends:
 ```bash
 pip install inventorydb              # core only
 pip install "inventorydb[redis]"     # + redis-py, for (Async)RedisInventoryStorage
-pip install "inventorydb[mongodb]"   # + pymongo, for MongoDBInventoryStorage
+pip install "inventorydb[mongodb]"   # + pymongo, for (Async)MongoDBInventoryStorage
 pip install "inventorydb[pydantic]"  # + pydantic, for (Async)PydanticInventory
 pip install "inventorydb[all]"       # everything
 # or with uv
@@ -214,7 +214,9 @@ storage = MongoDBInventoryStorage(mongo_client=client)
 
 Items are stored in the `inventory` database, one collection per `item_type`.
 The MongoDB `_id` field is stripped from results automatically.
-Pass a pre-configured `pymongo.MongoClient`. Requires `pymongo`.
+Pass a pre-configured `pymongo.MongoClient`. Requires `pymongo`. `AsyncMongoDBInventoryStorage`
+takes a `pymongo.AsyncMongoClient` and uses the same layout, so sync and async adapters
+can share data. Both accept an optional MongoDB `query` in `items` / `aitems` to filter results.
 
 ---
 
@@ -286,7 +288,7 @@ item = await todos.get("1")  # Todo | None
 
 `AsyncInventory` has the same methods and behaviour as `Inventory`, but every
 method is a coroutine. It works with any `AsyncInventoryStorage` adapter:
-`AsyncRedisInventoryStorage`, or `InMemoryInventoryStorage` for tests.
+`AsyncRedisInventoryStorage`, `AsyncMongoDBInventoryStorage`, or `InMemoryInventoryStorage` for tests.
 
 ```python
 import redis.asyncio
@@ -437,7 +439,7 @@ client = TestClient(app)
 |---|---|
 | Single-process, low traffic | `SQLiteInventoryStorage` — zero deps, ACID, simple |
 | Multi-worker / multi-process | `RedisInventoryStorage` or `MongoDBInventoryStorage` |
-| Async routes | `AsyncInventory` + `AsyncRedisInventoryStorage` — non-blocking, fits the event loop |
+| Async routes | `AsyncInventory` + `AsyncRedisInventoryStorage` or `AsyncMongoDBInventoryStorage` — non-blocking, fits the event loop |
 | Testing / local dev | `InMemoryInventoryStorage` — fast, no infrastructure needed |
 
 ---
@@ -585,7 +587,7 @@ modules fail; exclude them to run everything else:
 
 ```bash
 uv run pytest --ignore=tests/test_redis_storage.py --ignore=tests/test_async_redis_storage.py \
-  --ignore=tests/test_mongodb_storage.py
+  --ignore=tests/test_mongodb_storage.py --ignore=tests/test_async_mongodb_storage.py
 ```
 
 MongoDB tests use

@@ -5,6 +5,7 @@ from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Any
 
 from inventorydb.asyncio.async_inventory import AsyncInventory
+from inventorydb.asyncio.async_mongodb_storage import AsyncMongoDBInventoryStorage
 from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage
 from inventorydb.asyncio.async_storage import AsyncInventoryStorage
 from inventorydb.errors import InventoryError, ItemNotFoundError
@@ -28,6 +29,7 @@ except PackageNotFoundError:  # running from a source tree without installation
 __all__ = [
     "AsyncInventory",
     "AsyncInventoryStorage",
+    "AsyncMongoDBInventoryStorage",
     "AsyncPydanticInventory",
     "AsyncRedisInventoryStorage",
     "DirectoryBasedInventoryStorage",
