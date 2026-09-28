@@ -367,6 +367,7 @@ class TestFileBasedInventoryStorageFiles:
         assert sorted(os.listdir(base_dir)) == [".todo.json.lock", "todo.json"]
 
     def test_read_and_delete_of_missing_type_create_no_files(self, file_storage, base_dir):
+        assert file_storage.keys("ghost") == []
         assert file_storage.items("ghost") == []
         assert file_storage.read("ghost", "1") is None
         assert file_storage.delete("ghost", "1") is False
@@ -386,6 +387,20 @@ class TestFileBasedInventoryStorageFiles:
 
 
 class TestDirectoryBasedInventoryStorageFiles:
+    def test_keys_ignores_non_item_files(self, dir_storage, base_dir):
+        dir_storage.write("todo", {"id": "1"})
+        type_dir = os.path.join(base_dir, "todo")
+        for name in (".1.json.abc123.tmp", "notes.txt"):  # e.g. an in-progress atomic write
+            with open(os.path.join(type_dir, name), "w") as f:
+                f.write("x")
+        assert dir_storage.keys("todo") == ["1"]
+
+    def test_keys_does_not_open_item_files(self, dir_storage, base_dir):
+        dir_storage.write("todo", {"id": "1"})
+        with open(os.path.join(base_dir, "todo", "1.json"), "w") as f:
+            f.write("not json")  # items() would fail on this; keys() must not read it
+        assert dir_storage.keys("todo") == ["1"]
+
     def test_failed_write_leaves_no_partial_item(self, dir_storage, base_dir):
         dir_storage.write("todo", {"id": "1"})
         with pytest.raises(TypeError):

@@ -47,6 +47,27 @@ class TestInventorySave:
             Inventory("todo", FailingStorage()).save({"id": "1"})
 
 
+class TestInventoryKeys:
+    def test_keys_returns_ids(self, todos):
+        todos.save({"id": "1"})
+        todos.save({"id": "2"})
+        assert sorted(todos.keys()) == ["1", "2"]
+
+    def test_keys_empty(self, todos):
+        assert todos.keys() == []
+
+    def test_keys_only_for_own_item_type(self, todos, storage):
+        todos.save({"id": "1"})
+        Inventory("note", storage).save({"id": "2"})
+        assert todos.keys() == ["1"]
+
+    def test_keys_reflects_delete(self, todos):
+        todos.save({"id": "1"})
+        todos.save({"id": "2"})
+        todos.delete("1")
+        assert todos.keys() == ["2"]
+
+
 class TestInventoryGetFilter:
     def test_get_returns_item(self, todos):
         todos.save({"id": "1", "title": "a"})
@@ -147,6 +168,17 @@ class TestPydanticInventory:
 
     def test_get_missing_returns_none(self, model_todos):
         assert model_todos.get("nope") is None
+
+    def test_keys_returns_ids(self, model_todos):
+        model_todos.save(Todo(id="1", title="a"))
+        model_todos.save(Todo(id="2", title="b"))
+        assert sorted(model_todos.keys()) == ["1", "2"]
+
+    def test_keys_does_not_validate_items(self, model_todos, storage):
+        storage.write("todo", {"id": "1", "title": "a", "done": "not a bool"})  # written outside the model
+        assert model_todos.keys() == ["1"]
+        with pytest.raises(pydantic.ValidationError):
+            model_todos.filter()
 
     def test_filter_returns_models(self, model_todos):
         model_todos.save(Todo(id="1", title="a"))

@@ -34,6 +34,14 @@ class SQLiteInventoryStorage(InventoryStorage):
         finally:
             conn.close()
 
+    def keys(self, item_type: str) -> list[str]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id FROM items WHERE item_type = ?",
+                (item_type,),
+            ).fetchall()
+        return [row["id"] for row in rows]
+
     def items(self, item_type: str) -> list[Item]:
         with self._connect() as conn:
             rows = conn.execute(

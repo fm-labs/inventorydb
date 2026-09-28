@@ -120,6 +120,41 @@ class TestStorageContract:
     def test_implements_protocol(self, storage):
         assert isinstance(storage, InventoryStorage)
 
+    # keys
+
+    def test_keys_unknown_type_returns_empty_list(self, storage):
+        assert storage.keys("ghost") == []
+
+    def test_keys_returns_all_ids_of_type(self, storage):
+        storage.write("todo", {"id": "1", "title": "a"})
+        storage.write("todo", {"id": "2", "title": "b"})
+        assert sorted(storage.keys("todo")) == ["1", "2"]
+
+    def test_keys_are_strings(self, storage):
+        storage.write("todo", {"id": "1"})
+        assert all(type(key) is str for key in storage.keys("todo"))
+
+    def test_keys_isolates_types(self, storage):
+        storage.write("todo", {"id": "1"})
+        storage.write("note", {"id": "2"})
+        assert storage.keys("todo") == ["1"]
+
+    def test_keys_has_no_duplicates_after_overwrite(self, storage):
+        storage.write("todo", {"id": "1", "title": "a"})
+        storage.write("todo", {"id": "1", "title": "b"})
+        assert storage.keys("todo") == ["1"]
+
+    def test_keys_reflects_delete(self, storage):
+        storage.write("todo", {"id": "1"})
+        storage.write("todo", {"id": "2"})
+        storage.delete("todo", "1")
+        assert storage.keys("todo") == ["2"]
+
+    def test_keys_match_ids_of_items(self, storage):
+        for i in range(5):
+            storage.write("todo", {"id": f"item-{i}", "n": i})
+        assert sorted(storage.keys("todo")) == sorted(item["id"] for item in storage.items("todo"))
+
     # select
 
     def test_select_unknown_type_returns_empty_list(self, storage):
@@ -256,6 +291,30 @@ async def async_storage(request) -> AsyncIterator[AsyncInventoryStorage]:
 class TestAsyncStorageContract:
     def test_implements_protocol(self, async_storage):
         assert isinstance(async_storage, AsyncInventoryStorage)
+
+    async def test_keys_unknown_type_returns_empty_list(self, async_storage):
+        assert await async_storage.akeys("ghost") == []
+
+    async def test_keys_returns_ids_as_strings(self, async_storage):
+        await async_storage.awrite("todo", {"id": "1"})
+        await async_storage.awrite("todo", {"id": "2"})
+        await async_storage.awrite("note", {"id": "3"})
+        keys = await async_storage.akeys("todo")
+        assert sorted(keys) == ["1", "2"]
+        assert all(type(key) is str for key in keys)
+
+    async def test_keys_has_no_duplicates_and_reflects_delete(self, async_storage):
+        await async_storage.awrite("todo", {"id": "1", "v": 1})
+        await async_storage.awrite("todo", {"id": "1", "v": 2})
+        await async_storage.awrite("todo", {"id": "2"})
+        await async_storage.adelete("todo", "2")
+        assert await async_storage.akeys("todo") == ["1"]
+
+    async def test_keys_match_ids_of_items(self, async_storage):
+        for i in range(5):
+            await async_storage.awrite("todo", {"id": f"item-{i}"})
+        items = await async_storage.aitems("todo")
+        assert sorted(await async_storage.akeys("todo")) == sorted(item["id"] for item in items)
 
     async def test_select_unknown_type_returns_empty_list(self, async_storage):
         assert await async_storage.aitems("ghost") == []

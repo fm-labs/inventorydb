@@ -14,6 +14,9 @@ class InMemoryInventoryStorage(InventoryStorage, AsyncInventoryStorage):
     def __init__(self) -> None:
         self.data: dict[str, dict[str, Item]] = {}
 
+    def keys(self, item_type: str) -> list[str]:
+        return list(self.data.get(item_type, {}))
+
     def items(self, item_type: str) -> list[Item]:
         return copy.deepcopy(list(self.data.get(item_type, {}).values()))
 
@@ -31,6 +34,9 @@ class InMemoryInventoryStorage(InventoryStorage, AsyncInventoryStorage):
             del self.data[item_type][id]
             return True
         return False
+
+    async def akeys(self, item_type: str) -> list[str]:
+        return self.keys(item_type)
 
     async def aitems(self, item_type: str) -> list[Item]:
         return self.items(item_type)

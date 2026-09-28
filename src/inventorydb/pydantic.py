@@ -59,6 +59,9 @@ class PydanticInventory[M: pydantic.BaseModel]:
     def storage(self) -> InventoryStorage:
         return self.inventory.storage
 
+    def keys(self) -> list[str]:
+        return self.inventory.keys()
+
     def filter(self) -> list[M]:
         return [self.model_class.model_validate(item) for item in self.inventory.filter()]
 
@@ -96,6 +99,9 @@ class AsyncPydanticInventory[M: pydantic.BaseModel]:
     @property
     def storage(self) -> AsyncInventoryStorage:
         return self.inventory.storage
+
+    async def keys(self) -> list[str]:
+        return await self.inventory.keys()
 
     async def filter(self) -> list[M]:
         return [self.model_class.model_validate(item) for item in await self.inventory.filter()]

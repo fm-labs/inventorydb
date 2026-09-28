@@ -9,7 +9,7 @@ __No thrills__ - **just a simple key-value store for serializable Python objects
 
 ## What you get
 
-- Basic CRUD operations: `save`, `get`, `filter`, `patch`, `delete`
+- Basic CRUD operations: `save`, `get`, `filter`, `keys`, `patch`, `delete`
 - Multiple storage adapters (in-memory, file-based, SQLite, Redis, MongoDB)
 - Optional Pydantic model validation with `PydanticInventory` / `AsyncPydanticInventory`
 - Async support via `AsyncInventory` with async storage adapters (in-memory, Redis)
@@ -51,6 +51,7 @@ todos.save({"id": "2", "title": "Walk dog", "done": False})
 
 todos.get("1")  # → {"id": "1", "title": "Buy milk", "done": False}
 todos.filter()  # → [{"id": "1", ...}, {"id": "2", ...}]
+todos.keys()  # → ["1", "2"] (order unspecified)
 todos.patch("1", {"done": True})  # → {"id": "1", ..., "done": True}
 todos.delete("1")  # → True
 ```
@@ -65,7 +66,7 @@ or from their submodules (e.g. `inventorydb.storage.sqlite_storage`) as in the e
 
 All adapters follow the same contract (verified by a shared test suite):
 
-- `get` returns `None` for a missing item; `filter` returns `[]` for an empty type.
+- `get` returns `None` for a missing item; `filter` and `keys` return `[]` for an empty type.
 - `save` inserts a new item or **replaces** an existing one entirely (it does not merge fields).
 - `patch` merges the given fields into an existing item. It cannot change the item's `id`.
 - `delete` returns `True` if the item was removed, `False` if it did not exist.
@@ -217,6 +218,8 @@ if item is not None:
 
 The model type is inferred from `model_class`, so type checkers know that
 `todos.get()` returns `Todo | None` and `todos.filter()` returns `list[Todo]`.
+`todos.keys()` returns the item ids (`list[str]`) without loading or validating
+any items.
 
 `save` and `patch` validate the complete item before writing it. Data that fails
 validation raises `pydantic.ValidationError` and is never stored:
@@ -265,6 +268,7 @@ todos = AsyncInventory(item_type="todo", storage=AsyncRedisInventoryStorage(clie
 await todos.save({"id": "1", "title": "Buy milk", "done": False})
 await todos.get("1")  # → {"id": "1", "title": "Buy milk", "done": False}
 await todos.filter()  # → [{"id": "1", ...}]
+await todos.keys()  # → ["1"]
 await todos.patch("1", {"done": True})  # → {"id": "1", ..., "done": True}
 await todos.delete("1")  # → True
 ```
@@ -272,7 +276,7 @@ await todos.delete("1")  # → True
 For Pydantic models, use `AsyncPydanticInventory` (see [Pydantic Models: Async](#async)).
 
 Passing a sync-only adapter (e.g. `SQLiteInventoryStorage`) to `AsyncInventory`
-raises `TypeError`. The adapter methods (`aitems`, `aread`, `awrite`, `adelete`)
+raises `TypeError`. The adapter methods (`akeys`, `aitems`, `aread`, `awrite`, `adelete`)
 can also be called directly on the storage.
 
 ---
@@ -424,13 +428,24 @@ Item = dict[str, Any]
 
 @runtime_checkable
 class InventoryStorage(Protocol):
+    def keys(self, item_type: str) -> list[str]: ...
     def items(self, item_type: str) -> list[Item]: ...
     def read(self, item_type: str, id: str) -> Item | None: ...
     def write(self, item_type: str, item: Item) -> bool: ...
     def delete(self, item_type: str, id: str) -> bool: ...
 ```
 
-See the [Behaviour](#behaviour) section for the contract each method must follow.
+Every adapter must follow this contract (the shared test suite in
+`tests/test_storage_contract.py` checks it):
+
+- `keys` returns all item ids of a type as strings, or `[]` if there are none.
+- `items` returns all items of a type, or `[]` if there are none.
+- `read` returns the item, or `None` if it does not exist.
+- `write` inserts the item, or replaces an existing item with the same id entirely.
+- `delete` returns `True` if an item was removed, `False` if it did not exist.
+- Returned items are independent copies; mutating them does not change stored data.
+
+The order of `keys` and `items` is unspecified.
 
 ### Async — `AsyncInventoryStorage`
 
@@ -442,11 +457,14 @@ from inventorydb.interface import Item
 
 @runtime_checkable
 class AsyncInventoryStorage(Protocol):
+    async def akeys(self, item_type: str) -> list[str]: ...
     async def aitems(self, item_type: str) -> list[Item]: ...
     async def aread(self, item_type: str, id: str) -> Item | None: ...
     async def awrite(self, item_type: str, item: Item) -> bool: ...
     async def adelete(self, item_type: str, id: str) -> bool: ...
 ```
+
+Same contract as the sync protocol, with every method a coroutine.
 
 ### Duck-typing — no inheritance needed
 
@@ -456,6 +474,8 @@ subclass anything from `inventorydb`:
 
 ```python
 class MyCustomStorage:
+    def keys(self, item_type: str) -> list[str]: ...
+
     def items(self, item_type: str) -> list[dict]: ...
 
     def read(self, item_type: str, id: str) -> dict | None: ...

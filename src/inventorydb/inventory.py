@@ -30,6 +30,9 @@ class Inventory:
         self.storage = storage
         self.item_type = item_type
 
+    def keys(self) -> list[str]:
+        return self.storage.keys(self.item_type)
+
     def filter(self) -> list[Item]:
         return self.storage.items(self.item_type)
 

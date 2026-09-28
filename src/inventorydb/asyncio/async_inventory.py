@@ -18,6 +18,9 @@ class AsyncInventory:
         self.storage = storage
         self.item_type = item_type
 
+    async def keys(self) -> list[str]:
+        return await self.storage.akeys(self.item_type)
+
     async def filter(self) -> list[Item]:
         return await self.storage.aitems(self.item_type)
 

@@ -197,6 +197,7 @@ class TestAsyncRedisInventoryStorageLayout:
             await storage.awrite("todo", {"id": "1", "done": True})
             assert await storage.aread("todo", "1") == {"id": "1", "done": True}
             assert await storage.aitems("todo") == [{"id": "1", "done": True}]
+            assert await storage.akeys("todo") == ["1"]
         finally:
             await close_async_redis(client)
 

@@ -49,6 +49,27 @@ class TestAsyncInventorySave:
             await AsyncInventory("todo", FailingStorage()).save({"id": "1"})
 
 
+class TestAsyncInventoryKeys:
+    async def test_keys_returns_ids(self, todos):
+        await todos.save({"id": "1"})
+        await todos.save({"id": "2"})
+        assert sorted(await todos.keys()) == ["1", "2"]
+
+    async def test_keys_empty(self, todos):
+        assert await todos.keys() == []
+
+    async def test_keys_only_for_own_item_type(self, todos, storage):
+        await todos.save({"id": "1"})
+        await AsyncInventory("note", storage).save({"id": "2"})
+        assert await todos.keys() == ["1"]
+
+    async def test_keys_reflects_delete(self, todos):
+        await todos.save({"id": "1"})
+        await todos.save({"id": "2"})
+        await todos.delete("1")
+        assert await todos.keys() == ["2"]
+
+
 class TestAsyncInventoryGetFilter:
     async def test_get_returns_item(self, todos):
         await todos.save({"id": "1", "title": "a"})
@@ -144,6 +165,17 @@ class TestAsyncPydanticInventory:
 
     async def test_get_missing_returns_none(self, model_todos):
         assert await model_todos.get("nope") is None
+
+    async def test_keys_returns_ids(self, model_todos):
+        await model_todos.save(Todo(id="1", title="a"))
+        await model_todos.save(Todo(id="2", title="b"))
+        assert sorted(await model_todos.keys()) == ["1", "2"]
+
+    async def test_keys_does_not_validate_items(self, model_todos, storage):
+        storage.write("todo", {"id": "1", "title": "a", "done": "not a bool"})  # written outside the model
+        assert await model_todos.keys() == ["1"]
+        with pytest.raises(pydantic.ValidationError):
+            await model_todos.filter()
 
     async def test_filter_returns_models(self, model_todos):
         await model_todos.save(Todo(id="1", title="a"))

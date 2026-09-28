@@ -26,6 +26,9 @@ class FileBasedInventoryStorage(InventoryStorage):
         if not os.path.exists(self.inventory_dir):
             raise ValueError(f"Base directory {self.inventory_dir} does not exist.")
 
+    def keys(self, item_type: str) -> list[str]:
+        return [item["id"] for item in self.items(item_type)]
+
     def items(self, item_type: str) -> list[Item]:
         file_path = self._file_path(item_type)
         if not os.path.exists(file_path):
@@ -95,6 +98,14 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
 
     def _item_path(self, item_type: str, id: str) -> str:
         return os.path.join(self._type_dir(item_type), f"{_safe_name(id, 'item id')}.json")
+
+    def keys(self, item_type: str) -> list[str]:
+        # Item files are named "{id}.json" (ids are validated as safe file names),
+        # so ids come straight from the directory listing without opening any file.
+        type_dir = self._type_dir(item_type)
+        if not os.path.exists(type_dir):
+            return []
+        return [filename.removesuffix(".json") for filename in os.listdir(type_dir) if filename.endswith(".json")]
 
     def items(self, item_type: str) -> list[Item]:
         type_dir = self._type_dir(item_type)

@@ -14,6 +14,8 @@ class RedisHashClient(Protocol):
     as returning ``Awaitable[T] | T``; the async adapter awaits the results.
     """
 
+    def hkeys(self, name: str, /) -> Any: ...
+
     def hvals(self, name: str, /) -> Any: ...
 
     def hget(self, name: str, key: str, /) -> Any: ...
@@ -21,6 +23,11 @@ class RedisHashClient(Protocol):
     def hset(self, name: str, key: str, value: str, /) -> Any: ...
 
     def hdel(self, name: str, /, *keys: str) -> Any: ...
+
+
+def decode_key(key: bytes | str) -> str:
+    """Hash field names are bytes unless the client was created with ``decode_responses=True``."""
+    return key.decode() if isinstance(key, bytes) else key
 
 
 def redis_type_key(key_prefix: str, item_type: str) -> str:
@@ -42,6 +49,9 @@ class RedisInventoryStorage(InventoryStorage):
 
     def _key(self, item_type: str) -> str:
         return redis_type_key(self.key_prefix, item_type)
+
+    def keys(self, item_type: str) -> list[str]:
+        return [decode_key(key) for key in self.redis_client.hkeys(self._key(item_type))]
 
     def items(self, item_type: str) -> list[Item]:
         return [json.loads(value) for value in self.redis_client.hvals(self._key(item_type))]

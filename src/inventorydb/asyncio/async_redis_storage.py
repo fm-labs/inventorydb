@@ -2,7 +2,7 @@ import json
 
 from inventorydb.asyncio.async_storage import AsyncInventoryStorage
 from inventorydb.interface import Item
-from inventorydb.storage.redis_storage import DEFAULT_KEY_PREFIX, RedisHashClient, redis_type_key
+from inventorydb.storage.redis_storage import DEFAULT_KEY_PREFIX, RedisHashClient, decode_key, redis_type_key
 
 
 class AsyncRedisInventoryStorage(AsyncInventoryStorage):
@@ -17,6 +17,9 @@ class AsyncRedisInventoryStorage(AsyncInventoryStorage):
 
     def _key(self, item_type: str) -> str:
         return redis_type_key(self.key_prefix, item_type)
+
+    async def akeys(self, item_type: str) -> list[str]:
+        return [decode_key(key) for key in await self.redis_client.hkeys(self._key(item_type))]
 
     async def aitems(self, item_type: str) -> list[Item]:
         return [json.loads(value) for value in await self.redis_client.hvals(self._key(item_type))]

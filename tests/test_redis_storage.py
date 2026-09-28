@@ -184,6 +184,7 @@ class TestRedisInventoryStorageLayout:
         storage.write("todo", item)
         assert storage.read("todo", "1") == item
         assert storage.items("todo") == [item]
+        assert storage.keys("todo") == ["1"]
         assert storage.delete("todo", "1") is True
 
     def test_bytes_and_str_clients_share_data(self, redis_container, storage):
