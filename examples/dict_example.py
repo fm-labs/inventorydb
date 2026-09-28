@@ -21,4 +21,3 @@ print("Updated To-do:", updated_todo)
 # Delete the to-do item
 delete_result = todos_inventory.delete("1")
 print("Deleted To-do:", delete_result)
-

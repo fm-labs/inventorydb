@@ -23,7 +23,7 @@ class InMemoryInventoryStorage(InventoryStorage, AsyncInventoryStorage):
     def write(self, item_type: str, item: Item) -> bool:
         if item_type not in self.data:
             self.data[item_type] = {}
-        self.data[item_type][item['id']] = copy.deepcopy(item)
+        self.data[item_type][item["id"]] = copy.deepcopy(item)
         return True
 
     def delete(self, item_type: str, id: str) -> bool:

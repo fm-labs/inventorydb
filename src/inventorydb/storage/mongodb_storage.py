@@ -15,24 +15,24 @@ class MongoDBInventoryStorage(InventoryStorage):
         self.mongo_client = mongo_client
 
     def get_mongo_collection(self, item_type: str) -> "Collection[Item]":
-        db = self.mongo_client['inventory']
+        db = self.mongo_client["inventory"]
         return db[item_type]
 
     def select(self, item_type: str, query: Mapping[str, Any] | None = None) -> list[Item]:
         """Return all items of a type. ``query`` is a MongoDB-only extension to filter results."""
         collection = self.get_mongo_collection(item_type)
-        return list(collection.find(query or {}, {'_id': False}))
+        return list(collection.find(query or {}, {"_id": False}))
 
     def write(self, item_type: str, item: Item) -> bool:
         collection = self.get_mongo_collection(item_type)
-        collection.replace_one({'id': item['id']}, item, upsert=True)
+        collection.replace_one({"id": item["id"]}, item, upsert=True)
         return True
 
     def read(self, item_type: str, id: str) -> Item | None:
         collection = self.get_mongo_collection(item_type)
-        return collection.find_one({'id': id}, {'_id': False})
+        return collection.find_one({"id": id}, {"_id": False})
 
     def delete(self, item_type: str, id: str) -> bool:
         collection = self.get_mongo_collection(item_type)
-        result = collection.delete_one({'id': id})
+        result = collection.delete_one({"id": id})
         return result.deleted_count > 0

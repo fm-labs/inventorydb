@@ -26,7 +26,6 @@ def require_read_back(item: Item | None, item_type: str, id: str) -> Item:
 
 
 class Inventory:
-
     def __init__(self, item_type: str, storage: InventoryStorage):
         self.storage = storage
         self.item_type = item_type

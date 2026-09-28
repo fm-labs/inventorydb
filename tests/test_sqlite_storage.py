@@ -27,16 +27,16 @@ def storage(db_path) -> SQLiteInventoryStorage:
 class TestSQLiteInventoryStorageInit:
     def test_init_creates_db_file(self, db_path):
         import os
+
         SQLiteInventoryStorage(db_path)
         assert os.path.exists(db_path)
 
     def test_init_creates_items_table(self, db_path):
         import sqlite3
+
         SQLiteInventoryStorage(db_path)
         with sqlite3.connect(db_path) as conn:
-            row = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='items'"
-            ).fetchone()
+            row = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='items'").fetchone()
         assert row is not None
 
     def test_init_is_idempotent(self, db_path):

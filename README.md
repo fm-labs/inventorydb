@@ -49,10 +49,10 @@ todos = Inventory(item_type="todo", storage=storage)
 todos.save({"id": "1", "title": "Buy milk", "done": False})
 todos.save({"id": "2", "title": "Walk dog", "done": False})
 
-todos.get("1")                   # → {"id": "1", "title": "Buy milk", "done": False}
-todos.filter()                   # → [{"id": "1", ...}, {"id": "2", ...}]
-todos.patch("1", {"done": True}) # → {"id": "1", ..., "done": True}
-todos.delete("1")                # → True
+todos.get("1")  # → {"id": "1", "title": "Buy milk", "done": False}
+todos.filter()  # → [{"id": "1", ...}, {"id": "2", ...}]
+todos.patch("1", {"done": True})  # → {"id": "1", ..., "done": True}
+todos.delete("1")  # → True
 ```
 
 Swapping the backend requires only changing the `storage` argument — the `Inventory`
@@ -183,10 +183,12 @@ from pydantic import BaseModel
 from inventorydb.pydantic import PydanticInventory
 from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
 
+
 class Todo(BaseModel):
     id: str
     title: str
     done: bool = False
+
 
 todos = PydanticInventory(
     item_type="todo",
@@ -195,9 +197,9 @@ todos = PydanticInventory(
 )
 
 todos.save(Todo(id="1", title="Buy milk"))
-item = todos.get("1")         # returns a Todo instance (or None), not a dict
+item = todos.get("1")  # returns a Todo instance (or None), not a dict
 if item is not None:
-    print(item.done)          # False
+    print(item.done)  # False
 ```
 
 The model type is inferred from `model_class`, so type checkers know that
@@ -220,10 +222,10 @@ client = redis.asyncio.Redis(host="localhost", port=6379)
 todos = AsyncInventory(item_type="todo", storage=AsyncRedisInventoryStorage(client))
 
 await todos.save({"id": "1", "title": "Buy milk", "done": False})
-await todos.get("1")                   # → {"id": "1", "title": "Buy milk", "done": False}
-await todos.filter()                   # → [{"id": "1", ...}]
-await todos.patch("1", {"done": True}) # → {"id": "1", ..., "done": True}
-await todos.delete("1")                # → True
+await todos.get("1")  # → {"id": "1", "title": "Buy milk", "done": False}
+await todos.filter()  # → [{"id": "1", ...}]
+await todos.patch("1", {"done": True})  # → {"id": "1", ..., "done": True}
+await todos.delete("1")  # → True
 ```
 
 Passing a sync-only adapter (e.g. `SQLiteInventoryStorage`) to `AsyncInventory`
@@ -245,12 +247,14 @@ from fastapi import FastAPI
 import redis.asyncio
 from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     client = redis.asyncio.Redis(host="localhost", port=6379)
     app.state.storage = AsyncRedisInventoryStorage(redis_client=client)
     yield
     await client.aclose()
+
 
 app = FastAPI(lifespan=lifespan)
 ```
@@ -265,12 +269,15 @@ from fastapi import Depends, HTTPException, Request
 from inventorydb.asyncio.async_inventory import AsyncInventory
 from inventorydb.errors import ItemNotFoundError
 
+
 def get_todos(request: Request) -> AsyncInventory:
     return AsyncInventory(item_type="todo", storage=request.app.state.storage)
+
 
 @app.get("/todos")
 async def list_todos(todos: AsyncInventory = Depends(get_todos)):
     return await todos.filter()
+
 
 @app.get("/todos/{todo_id}")
 async def get_todo(todo_id: str, todos: AsyncInventory = Depends(get_todos)):
@@ -279,9 +286,11 @@ async def get_todo(todo_id: str, todos: AsyncInventory = Depends(get_todos)):
         raise HTTPException(status_code=404)
     return item
 
+
 @app.post("/todos")
 async def create_todo(item: dict, todos: AsyncInventory = Depends(get_todos)):
     return await todos.save(item)
+
 
 @app.patch("/todos/{todo_id}")
 async def update_todo(todo_id: str, data: dict, todos: AsyncInventory = Depends(get_todos)):
@@ -303,17 +312,21 @@ from fastapi import FastAPI, Depends, Request
 from inventorydb.inventory import Inventory
 from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.storage = SQLiteInventoryStorage("app.db")
     yield
 
+
 app = FastAPI(lifespan=lifespan)
+
 
 def get_todos(request: Request) -> Inventory:
     return Inventory(item_type="todo", storage=request.app.state.storage)
 
-@app.get("/todos")                      # sync — runs in threadpool
+
+@app.get("/todos")  # sync — runs in threadpool
 def list_todos(todos: Inventory = Depends(get_todos)):
     return todos.filter()
 ```
@@ -331,8 +344,10 @@ from fastapi.testclient import TestClient
 
 test_storage = InMemoryInventoryStorage()
 
+
 def override_todos():
     return AsyncInventory(item_type="todo", storage=test_storage)
+
 
 app.dependency_overrides[get_todos] = override_todos
 client = TestClient(app)
@@ -363,6 +378,7 @@ from typing import Any, Protocol, runtime_checkable
 
 Item = dict[str, Any]
 
+
 @runtime_checkable
 class InventoryStorage(Protocol):
     def select(self, item_type: str) -> list[Item]: ...
@@ -380,6 +396,7 @@ See the [Behaviour](#behaviour) section for the contract each method must follow
 from typing import Protocol, runtime_checkable
 from inventorydb.interface import Item
 
+
 @runtime_checkable
 class AsyncInventoryStorage(Protocol):
     async def aselect(self, item_type: str) -> list[Item]: ...
@@ -396,17 +413,14 @@ subclass anything from `inventorydb`:
 
 ```python
 class MyCustomStorage:
-    def select(self, item_type: str) -> list[dict]:
-        ...
+    def select(self, item_type: str) -> list[dict]: ...
 
-    def read(self, item_type: str, id: str) -> dict | None:
-        ...
+    def read(self, item_type: str, id: str) -> dict | None: ...
 
-    def write(self, item_type: str, item: dict) -> bool:
-        ...
+    def write(self, item_type: str, item: dict) -> bool: ...
 
-    def delete(self, item_type: str, id: str) -> bool:
-        ...
+    def delete(self, item_type: str, id: str) -> bool: ...
+
 
 # Works — no explicit inheritance required
 todos = Inventory(item_type="todo", storage=MyCustomStorage())
@@ -419,6 +433,7 @@ implementations" or early feedback from a type checker when a method is missing:
 
 ```python
 from inventorydb.interface import InventoryStorage
+
 
 class MyCustomStorage(InventoryStorage):  # explicit, but optional
     ...
@@ -434,7 +449,7 @@ use a type checker for full verification:
 from inventorydb.interface import InventoryStorage
 
 isinstance(MyCustomStorage(), InventoryStorage)  # True
-isinstance("not a storage", InventoryStorage)    # False
+isinstance("not a storage", InventoryStorage)  # False
 ```
 
 ---

@@ -6,13 +6,7 @@ from inventorydb.interface import InventoryStorage, Item
 
 def _safe_name(name: str, kind: str) -> str:
     """Validate that an item type or id can be used as a single path component."""
-    if (
-        not isinstance(name, str)
-        or name in ("", ".", "..")
-        or "/" in name
-        or "\\" in name
-        or "\x00" in name
-    ):
+    if not isinstance(name, str) or name in ("", ".", "..") or "/" in name or "\\" in name or "\x00" in name:
         raise ValueError(f"Invalid {kind} for file storage: {name!r}")
     return name
 
@@ -66,7 +60,7 @@ class FileBasedInventoryStorage(InventoryStorage):
         return items
 
     def _write_file(self, item_type: str, data: list[Item]) -> None:
-        with open(self._file_path(item_type), 'w') as f:
+        with open(self._file_path(item_type), "w") as f:
             json.dump(data, f, indent=4)
 
 
@@ -101,7 +95,7 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
             raise ValueError("Item must have an 'id' field.")
         item_path = self._item_path(item_type, item_id)
         os.makedirs(self._type_dir(item_type), exist_ok=True)
-        with open(item_path, 'w') as f:
+        with open(item_path, "w") as f:
             json.dump(item, f, indent=4)
         return True
 

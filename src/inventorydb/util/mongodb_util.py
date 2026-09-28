@@ -19,7 +19,7 @@ def get_mongo_client(uri: str | None = None, ping: bool = False) -> "MongoClient
     if ping:
         try:
             # The ping command is cheap and does not require auth.
-            client.admin.command('ping')
+            client.admin.command("ping")
         except Exception as e:
             raise ConnectionError(f"Could not connect to MongoDB: {e}") from e
     return client

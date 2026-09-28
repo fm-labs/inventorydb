@@ -13,8 +13,7 @@ class AsyncInventory:
     def __init__(self, item_type: str, storage: AsyncInventoryStorage):
         if not isinstance(storage, AsyncInventoryStorage):
             raise TypeError(
-                f"{type(storage).__name__} is not an AsyncInventoryStorage; "
-                "use Inventory for sync storage adapters."
+                f"{type(storage).__name__} is not an AsyncInventoryStorage; use Inventory for sync storage adapters."
             )
         self.storage = storage
         self.item_type = item_type
