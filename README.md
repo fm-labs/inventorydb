@@ -115,7 +115,7 @@ storage = FileBasedInventoryStorage(base_dir="/var/data/myapp")
 
 All items of one type are stored in `{base_dir}/{item_type}.json`.
 The directory must exist before construction; type files are created on first write.
-Item types must be safe file names (no `/`, `\`, `..`), otherwise `ValueError` is raised.
+Item types must be safe file names, otherwise `ValueError` is raised (see [Path safety](#path-safety)).
 
 Safe to use from multiple threads and processes on the same machine. Each write
 holds an exclusive lock on a hidden `.{item_type}.json.lock` file while it reads,
@@ -136,7 +136,7 @@ storage = DirectoryBasedInventoryStorage(base_dir="/var/data/myapp")
 
 Items are stored at `{base_dir}/{item_type}/{id}.json`.
 Type directories are created automatically on first write.
-Item types and ids must be safe file names (no `/`, `\`, `..`), otherwise `ValueError` is raised.
+Item types and ids must be safe file names, otherwise `ValueError` is raised (see [Path safety](#path-safety)).
 
 Each type directory also contains an index file, `.index`, listing the ids of
 all items of that type, one per line. Writes append new ids and deletes remove
@@ -153,6 +153,25 @@ directory while they update the item file and the index, so the index stays
 correct with concurrent writers across threads and processes; concurrent writes
 to the same item are last-writer-wins. Locks are advisory and may not work on
 network file systems (NFS, SMB).
+
+### Path safety
+
+Both file-based adapters build file paths from item types (and, for
+`DirectoryBasedInventoryStorage`, ids), so they guard against path traversal:
+
+- Names must be a single path component: empty names, `.`, `..`, and names
+  containing `/`, `\`, NUL or newlines are rejected. On Windows, `< > : " | ? *`
+  and trailing dots or spaces are rejected too, since Windows would otherwise
+  treat `C:x` as a drive-relative path and `.. ` as `..`.
+- Every path is resolved with `os.path.realpath` and must lie inside the base
+  directory. A symlink inside the base directory that points outside it (to a
+  type file, type directory, item file, index or lock file) makes the operation
+  raise `ValueError` instead of following it. Symlinks that stay inside the base
+  directory, and a base directory that is itself a symlink, work normally.
+
+The check runs before each file operation, so it doesn't protect against an
+attacker who can write to the base directory and swaps in a symlink between the
+check and the operation. Don't give untrusted users write access to it.
 
 ### SQLite
 

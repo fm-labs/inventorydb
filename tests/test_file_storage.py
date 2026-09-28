@@ -289,6 +289,123 @@ class TestFileStoragePathValidation:
         assert list(tmp_path.rglob("escaped*")) == []
 
 
+def symlink(target: str, link: str) -> None:
+    try:
+        os.symlink(target, link)
+    except OSError as e:  # Windows without symlink privilege
+        pytest.skip(f"cannot create symlinks: {e}")
+
+
+class TestFileStorageSymlinkContainment:
+    """Symlinks inside the base dir must not let reads or writes reach files outside it."""
+
+    @pytest.fixture()
+    def outside(self, tmp_path) -> str:
+        path = tmp_path / "outside"
+        path.mkdir()
+        (path / "secret.json").write_text(json.dumps({"id": "secret"}))
+        return str(path)
+
+    @pytest.fixture()
+    def base_dir(self, tmp_path) -> str:
+        path = tmp_path / "base"
+        path.mkdir()
+        return str(path)
+
+    def test_dir_storage_rejects_symlinked_type_dir(self, dir_storage, base_dir, outside):
+        symlink(outside, os.path.join(base_dir, "todo"))
+        with pytest.raises(ValueError, match="outside the base directory"):
+            dir_storage.write("todo", {"id": "planted"})
+        with pytest.raises(ValueError, match="outside the base directory"):
+            dir_storage.read("todo", "secret")
+        with pytest.raises(ValueError, match="outside the base directory"):
+            dir_storage.keys("todo")
+        with pytest.raises(ValueError, match="outside the base directory"):
+            dir_storage.items("todo")
+        with pytest.raises(ValueError, match="outside the base directory"):
+            dir_storage.delete("todo", "secret")
+        assert sorted(os.listdir(outside)) == ["secret.json"]
+
+    def test_dir_storage_rejects_symlinked_item_file(self, dir_storage, base_dir, outside):
+        dir_storage.write("todo", {"id": "1"})
+        symlink(os.path.join(outside, "secret.json"), os.path.join(base_dir, "todo", "leak.json"))
+        with pytest.raises(ValueError, match="outside the base directory"):
+            dir_storage.read("todo", "leak")
+        with pytest.raises(ValueError, match="outside the base directory"):
+            dir_storage.items("todo")
+        with pytest.raises(ValueError, match="outside the base directory"):
+            dir_storage.write("todo", {"id": "leak"})
+        with pytest.raises(ValueError, match="outside the base directory"):
+            dir_storage.delete("todo", "leak")
+        assert os.path.exists(os.path.join(outside, "secret.json"))
+
+    def test_dir_storage_rejects_symlinked_index_and_lock(self, dir_storage, base_dir, outside):
+        dir_storage.write("todo", {"id": "1"})
+        type_dir = os.path.join(base_dir, "todo")
+        os.remove(os.path.join(type_dir, ".index"))
+        symlink(os.path.join(outside, "index"), os.path.join(type_dir, ".index"))
+        with pytest.raises(ValueError, match="outside the base directory"):
+            dir_storage.write("todo", {"id": "2"})
+        os.remove(os.path.join(type_dir, ".index"))
+        os.remove(os.path.join(type_dir, ".index.lock"))
+        symlink(os.path.join(outside, "lock"), os.path.join(type_dir, ".index.lock"))
+        with pytest.raises(ValueError, match="outside the base directory"):
+            dir_storage.keys("todo")
+        assert sorted(os.listdir(outside)) == ["secret.json"]
+
+    def test_file_storage_rejects_symlinked_type_file(self, file_storage, base_dir, outside):
+        symlink(os.path.join(outside, "secret.json"), os.path.join(base_dir, "todo.json"))
+        with pytest.raises(ValueError, match="outside the base directory"):
+            file_storage.items("todo")
+        with pytest.raises(ValueError, match="outside the base directory"):
+            file_storage.write("todo", {"id": "1"})
+        with pytest.raises(ValueError, match="outside the base directory"):
+            file_storage.delete("todo", "secret")
+
+    def test_file_storage_rejects_symlinked_lock_file(self, file_storage, base_dir, outside):
+        symlink(os.path.join(outside, "lock"), os.path.join(base_dir, ".todo.json.lock"))
+        with pytest.raises(ValueError, match="outside the base directory"):
+            file_storage.write("todo", {"id": "1"})
+        assert sorted(os.listdir(outside)) == ["secret.json"]
+
+    def test_symlink_to_base_dir_itself_is_rejected(self, dir_storage, base_dir):
+        symlink(base_dir, os.path.join(base_dir, "todo"))
+        with pytest.raises(ValueError, match="outside the base directory"):
+            dir_storage.keys("todo")
+
+    def test_symlinks_within_base_dir_are_allowed(self, dir_storage, base_dir):
+        os.makedirs(os.path.join(base_dir, "archive", "todo"))
+        symlink(os.path.join(base_dir, "archive", "todo"), os.path.join(base_dir, "todo"))
+        dir_storage.write("todo", {"id": "1"})
+        assert dir_storage.read("todo", "1") == {"id": "1"}
+        assert os.path.exists(os.path.join(base_dir, "archive", "todo", "1.json"))
+
+    def test_symlinked_base_dir_is_allowed(self, tmp_path):
+        real = tmp_path / "real"
+        real.mkdir()
+        symlink(str(real), str(tmp_path / "link"))
+        for storage in (
+            DirectoryBasedInventoryStorage(str(tmp_path / "link")),
+            FileBasedInventoryStorage(str(tmp_path / "link")),
+        ):
+            storage.write("todo", {"id": "1"})
+            assert storage.read("todo", "1") == {"id": "1"}
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows path semantics")
+class TestFileStorageWindowsNames:
+    @pytest.mark.parametrize(
+        "name", ["C:evil", "todo:stream", "a<b", "a>b", 'a"b', "a|b", "a?b", "a*b", "todo.", "todo ", ".. "]
+    )
+    def test_rejects_windows_unsafe_names(self, file_storage, dir_storage, name):
+        with pytest.raises(ValueError, match="Invalid item type"):
+            file_storage.write(name, {"id": "1"})
+        with pytest.raises(ValueError, match="Invalid item type"):
+            dir_storage.write(name, {"id": "1"})
+        with pytest.raises(ValueError, match="Invalid item id"):
+            dir_storage.write("todo", {"id": name})
+
+
 # ===========================================================================
 # Concurrency and crash safety
 # ===========================================================================

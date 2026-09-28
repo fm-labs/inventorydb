@@ -1,16 +1,49 @@
 import json
 import os
+import sys
 
 from inventorydb.interface import InventoryStorage, Item
 from inventorydb.util.file_util import atomic_write_json, atomic_write_text, locked
 
+# Newlines are rejected because the directory storage index stores one id per line.
+_UNSAFE_CHARS = "/\\\x00\n\r"
+if sys.platform == "win32":
+    # Characters Windows doesn't allow in file names; ":" would also allow drive-relative
+    # paths ("C:x", which os.path.join doesn't anchor to the base dir) and alternate data streams.
+    _UNSAFE_CHARS += '<>:"|?*'
+
 
 def _safe_name(name: str, kind: str) -> str:
     """Validate that an item type or id can be used as a single path component."""
-    # Newlines are rejected because the directory storage index stores one id per line.
-    if not isinstance(name, str) or name in ("", ".", "..") or any(c in name for c in "/\\\x00\n\r"):
+    if not isinstance(name, str) or name in ("", ".", "..") or any(c in name for c in _UNSAFE_CHARS):
+        raise ValueError(f"Invalid {kind} for file storage: {name!r}")
+    if sys.platform == "win32" and name[-1] in ". ":
+        # Windows drops trailing dots and spaces, so "a." would alias "a" and ".. " would mean "..".
         raise ValueError(f"Invalid {kind} for file storage: {name!r}")
     return name
+
+
+def _contained_path(real_base: str, *parts: str) -> str:
+    """Join ``parts`` onto ``real_base``, checking that the real path of the result lies inside ``real_base``.
+
+    ``real_base`` must already be a real path (``os.path.realpath``). Resolving
+    symlinks catches links inside the base directory that point outside it, which
+    the name checks in ``_safe_name`` can't see. Returns the joined (unresolved)
+    path, so replacing or deleting a symlinked file acts on the link itself.
+
+    The check can't stop an attacker who can write to the base directory and swaps
+    in a symlink between the check and the file operation.
+    """
+    path = os.path.join(real_base, *parts)
+    real_path = os.path.normcase(os.path.realpath(path))
+    base = os.path.normcase(real_base)
+    try:
+        inside = real_path != base and os.path.commonpath([base, real_path]) == base
+    except ValueError:  # on different drives (Windows)
+        inside = False
+    if not inside:
+        raise ValueError(f"Path for file storage resolves outside the base directory: {path!r}")
+    return path
 
 
 class FileBasedInventoryStorage(InventoryStorage):
@@ -26,6 +59,7 @@ class FileBasedInventoryStorage(InventoryStorage):
         self.inventory_dir = base_dir
         if not os.path.exists(self.inventory_dir):
             raise ValueError(f"Base directory {self.inventory_dir} does not exist.")
+        self._real_base = os.path.realpath(base_dir)
 
     def keys(self, item_type: str) -> list[str]:
         return [item["id"] for item in self.items(item_type)]
@@ -70,10 +104,10 @@ class FileBasedInventoryStorage(InventoryStorage):
         return True
 
     def _file_path(self, item_type: str) -> str:
-        return os.path.join(self.inventory_dir, f"{_safe_name(item_type, 'item type')}.json")
+        return _contained_path(self._real_base, f"{_safe_name(item_type, 'item type')}.json")
 
     def _lock_path(self, item_type: str) -> str:
-        return os.path.join(self.inventory_dir, f".{_safe_name(item_type, 'item type')}.json.lock")
+        return _contained_path(self._real_base, f".{_safe_name(item_type, 'item type')}.json.lock")
 
     @staticmethod
     def _load(file_path: str) -> list[Item]:
@@ -102,18 +136,22 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
         self.inventory_dir = base_dir
         if not os.path.exists(self.inventory_dir):
             raise ValueError(f"Base directory {self.inventory_dir} does not exist.")
+        self._real_base = os.path.realpath(base_dir)
 
     def _type_dir(self, item_type: str) -> str:
-        return os.path.join(self.inventory_dir, _safe_name(item_type, "item type"))
+        return _contained_path(self._real_base, _safe_name(item_type, "item type"))
 
     def _item_path(self, item_type: str, id: str) -> str:
-        return os.path.join(self._type_dir(item_type), f"{_safe_name(id, 'item id')}.json")
+        return self._path_in_type_dir(item_type, f"{_safe_name(id, 'item id')}.json")
+
+    def _path_in_type_dir(self, item_type: str, filename: str) -> str:
+        return _contained_path(self._real_base, _safe_name(item_type, "item type"), filename)
 
     def _index_path(self, item_type: str) -> str:
-        return os.path.join(self._type_dir(item_type), self.INDEX_FILE)
+        return self._path_in_type_dir(item_type, self.INDEX_FILE)
 
     def _lock_path(self, item_type: str) -> str:
-        return os.path.join(self._type_dir(item_type), f"{self.INDEX_FILE}.lock")
+        return self._path_in_type_dir(item_type, f"{self.INDEX_FILE}.lock")
 
     def keys(self, item_type: str) -> list[str]:
         type_dir = self._type_dir(item_type)
@@ -133,7 +171,7 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
         for filename in os.listdir(type_dir):
             if filename.endswith(".json"):
                 try:
-                    with open(os.path.join(type_dir, filename)) as f:
+                    with open(self._path_in_type_dir(item_type, filename)) as f:
                         items.append(json.load(f))
                 except FileNotFoundError:
                     continue  # deleted by another process since listdir()
