@@ -84,14 +84,19 @@ Errors are raised, not returned:
 
 ## Storage Adapters
 
-| Adapter | Class | When to use |
-|---|---|---|
-| In-Memory | `InMemoryInventoryStorage` | Testing / prototyping — volatile |
-| File (one file per type) | `FileBasedInventoryStorage` | Simple persistence for small datasets |
-| File (one file per item) | `DirectoryBasedInventoryStorage` | Medium datasets; per-item file operations |
-| SQLite | `SQLiteInventoryStorage` | ACID persistence with zero external deps |
-| Redis | `RedisInventoryStorage` | High-performance / distributed sync access |
-| MongoDB | `MongoDBInventoryStorage` | Document-oriented storage and complex queries |
+| Adapter | Sync class | Async class | When to use |
+|---|---|---|---|
+| In-Memory | `InMemoryInventoryStorage` | same class | Testing / prototyping — volatile |
+| File (one file per type) | `FileBasedInventoryStorage` | `AsyncFileBasedInventoryStorage` | Simple persistence for small datasets |
+| File (one file per item) | `DirectoryBasedInventoryStorage` | `AsyncDirectoryBasedInventoryStorage` | Medium datasets; per-item file operations |
+| SQLite | `SQLiteInventoryStorage` | `AsyncSQLiteInventoryStorage` | ACID persistence with zero external deps |
+| Redis | `RedisInventoryStorage` | `AsyncRedisInventoryStorage` | High-performance / distributed access |
+| MongoDB | `MongoDBInventoryStorage` | `AsyncMongoDBInventoryStorage` | Document-oriented storage and complex queries |
+
+Each async adapter uses the same data layout as its sync counterpart, so both can
+work on the same data. The file-based and SQLite async adapters run the sync code in
+a worker thread (`asyncio.to_thread`) and need no extra dependencies; the Redis and
+MongoDB ones use the drivers' native async clients.
 
 ### In-Memory
 
@@ -325,6 +330,33 @@ Passing a sync-only adapter (e.g. `SQLiteInventoryStorage`) to `AsyncInventory`
 raises `TypeError`; use its async counterpart (e.g. `AsyncSQLiteInventoryStorage`) instead.
 The adapter methods (`akeys`, `aitems`, `aread`, `awrite`, `adelete`)
 can also be called directly on the storage.
+
+---
+
+## Examples
+
+Runnable scripts are in [`examples/`](examples/):
+
+| Script | Shows |
+|---|---|
+| `dict_example.py` | `Inventory` with plain dicts (in-memory) |
+| `pydantic_example.py` | `PydanticInventory` (in-memory) |
+| `async_example.py` | `AsyncInventory` (in-memory) |
+| `async_pydantic_example.py` | `AsyncPydanticInventory` (in-memory) |
+| `async_file_example.py` | `AsyncFileBasedInventoryStorage` |
+| `async_directory_example.py` | `AsyncDirectoryBasedInventoryStorage`, incl. concurrent saves and `arebuild_index` |
+| `async_sqlite_example.py` | `AsyncSQLiteInventoryStorage` |
+| `mongodb_example.py` | `MongoDBInventoryStorage`, incl. a MongoDB `query` filter |
+| `async_mongodb_example.py` | `AsyncMongoDBInventoryStorage`, incl. a MongoDB `query` filter |
+
+```bash
+uv run python examples/async_sqlite_example.py
+```
+
+The file-based and SQLite examples write to `data/` in the current directory
+(ignored by git); set `INVENTORY_DIR` or `SQLITE_DB_PATH` to change that. The MongoDB
+examples need a running server — `docker run --rm -p 27017:27017 mongo:7.0` — and
+connect to `MONGODB_URI` (default `mongodb://localhost:27017`).
 
 ---
 

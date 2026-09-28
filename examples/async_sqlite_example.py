@@ -8,7 +8,9 @@ from inventorydb.asyncio.async_sqlite_storage import AsyncSQLiteInventoryStorage
 
 
 async def main() -> None:
-    storage = AsyncSQLiteInventoryStorage(db_path=os.getenv("SQLITE_DB_PATH", "todos.db"))
+    db_path = os.getenv("SQLITE_DB_PATH", os.path.join("data", "todos.db"))
+    os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)  # sqlite3 doesn't create missing directories
+    storage = AsyncSQLiteInventoryStorage(db_path=db_path)
     todos_inventory = AsyncInventory(item_type="todo", storage=storage)
 
     # Create some to-do items

@@ -1,5 +1,8 @@
 .idea/
 
+# Data written by the examples
+data/
+
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
