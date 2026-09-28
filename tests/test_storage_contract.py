@@ -253,6 +253,12 @@ async def _async_inmemory(request):
     return InMemoryInventoryStorage()
 
 
+async def _async_sqlite(request):
+    from inventorydb.asyncio.async_sqlite_storage import AsyncSQLiteInventoryStorage
+
+    return AsyncSQLiteInventoryStorage(str(request.getfixturevalue("tmp_path") / "contract.db"))
+
+
 async def _async_redis(request):
     import redis.asyncio
 
@@ -281,6 +287,7 @@ async def _async_mongodb(request):
 
 ASYNC_ADAPTERS = [
     pytest.param(_async_inmemory, id="inmemory"),
+    pytest.param(_async_sqlite, id="sqlite"),
     pytest.param(_async_redis, id="redis", marks=requires_docker),
     pytest.param(_async_mongodb, id="mongodb", marks=requires_docker),
 ]

@@ -12,7 +12,7 @@ __No thrills__ - **just a simple key-value store for serializable Python objects
 - Basic CRUD operations: `save`, `get`, `filter`, `keys`, `patch`, `delete`
 - Multiple storage adapters (in-memory, file-based, SQLite, Redis, MongoDB)
 - Optional Pydantic model validation with `PydanticInventory` / `AsyncPydanticInventory`
-- Async support via `AsyncInventory` with async storage adapters (in-memory, Redis, MongoDB)
+- Async support via `AsyncInventory` with async storage adapters (in-memory, SQLite, Redis, MongoDB)
 - Easy FastAPI integration with dependency injection
 - Fully typed (ships `py.typed`), checked with `mypy --strict`
 
@@ -183,6 +183,9 @@ storage = SQLiteInventoryStorage(db_path="myapp.db")
 
 Uses a single `items` table with a `(item_type, id)` primary key and JSON
 blob storage. The table is created automatically. No external dependencies needed.
+`AsyncSQLiteInventoryStorage(db_path=...)` uses the same table, so sync and async adapters
+can share a database. It runs each call in a worker thread (`asyncio.to_thread`), so it
+also needs no extra dependencies.
 
 ### Redis
 
@@ -288,7 +291,8 @@ item = await todos.get("1")  # Todo | None
 
 `AsyncInventory` has the same methods and behaviour as `Inventory`, but every
 method is a coroutine. It works with any `AsyncInventoryStorage` adapter:
-`AsyncRedisInventoryStorage`, `AsyncMongoDBInventoryStorage`, or `InMemoryInventoryStorage` for tests.
+`AsyncSQLiteInventoryStorage`, `AsyncRedisInventoryStorage`, `AsyncMongoDBInventoryStorage`,
+or `InMemoryInventoryStorage` for tests.
 
 ```python
 import redis.asyncio
@@ -309,7 +313,8 @@ await todos.delete("1")  # → True
 For Pydantic models, use `AsyncPydanticInventory` (see [Pydantic Models: Async](#async)).
 
 Passing a sync-only adapter (e.g. `SQLiteInventoryStorage`) to `AsyncInventory`
-raises `TypeError`. The adapter methods (`akeys`, `aitems`, `aread`, `awrite`, `adelete`)
+raises `TypeError`; use its async counterpart (e.g. `AsyncSQLiteInventoryStorage`) instead.
+The adapter methods (`akeys`, `aitems`, `aread`, `awrite`, `adelete`)
 can also be called directly on the storage.
 
 ---
@@ -440,6 +445,7 @@ client = TestClient(app)
 | Single-process, low traffic | `SQLiteInventoryStorage` — zero deps, ACID, simple |
 | Multi-worker / multi-process | `RedisInventoryStorage` or `MongoDBInventoryStorage` |
 | Async routes | `AsyncInventory` + `AsyncRedisInventoryStorage` or `AsyncMongoDBInventoryStorage` — non-blocking, fits the event loop |
+| Async routes, single process, no infrastructure | `AsyncInventory` + `AsyncSQLiteInventoryStorage` — zero deps, runs in a worker thread |
 | Testing / local dev | `InMemoryInventoryStorage` — fast, no infrastructure needed |
 
 ---

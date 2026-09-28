@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from inventorydb.asyncio.async_inventory import AsyncInventory
 from inventorydb.asyncio.async_mongodb_storage import AsyncMongoDBInventoryStorage
 from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage
+from inventorydb.asyncio.async_sqlite_storage import AsyncSQLiteInventoryStorage
 from inventorydb.asyncio.async_storage import AsyncInventoryStorage
 from inventorydb.errors import InventoryError, ItemNotFoundError
 from inventorydb.interface import InventoryStorage, Item
@@ -32,6 +33,7 @@ __all__ = [
     "AsyncMongoDBInventoryStorage",
     "AsyncPydanticInventory",
     "AsyncRedisInventoryStorage",
+    "AsyncSQLiteInventoryStorage",
     "DirectoryBasedInventoryStorage",
     "FileBasedInventoryStorage",
     "InMemoryInventoryStorage",
