@@ -12,7 +12,7 @@ __No thrills__ - **just a simple key-value store for serializable Python objects
 - Basic CRUD operations: `save`, `get`, `filter`, `keys`, `patch`, `delete`
 - Multiple storage adapters (in-memory, file-based, SQLite, Redis, MongoDB)
 - Optional Pydantic model validation with `PydanticInventory` / `AsyncPydanticInventory`
-- Async support via `AsyncInventory` with async storage adapters (in-memory, SQLite, Redis, MongoDB)
+- Async support via `AsyncInventory` with async storage adapters (in-memory, file-based, SQLite, Redis, MongoDB)
 - Easy FastAPI integration with dependency injection
 - Fully typed (ships `py.typed`), checked with `mypy --strict`
 
@@ -126,6 +126,10 @@ mid-write cannot corrupt data. Lock files are left in place after use.
 Every write rewrites the whole type file, so this adapter suits small datasets.
 Locks are advisory and may not work on network file systems (NFS, SMB).
 
+`AsyncFileBasedInventoryStorage(base_dir=...)` is the async counterpart. It uses the
+same files and locks, running each call in a worker thread (`asyncio.to_thread`),
+so it can share a directory with the sync adapter.
+
 ### File-Based (one file per item)
 
 ```python
@@ -153,6 +157,10 @@ directory while they update the item file and the index, so the index stays
 correct with concurrent writers across threads and processes; concurrent writes
 to the same item are last-writer-wins. Locks are advisory and may not work on
 network file systems (NFS, SMB).
+
+`AsyncDirectoryBasedInventoryStorage(base_dir=...)` is the async counterpart. It uses
+the same files, index and locks, running each call in a worker thread
+(`asyncio.to_thread`); rebuild its index with `await storage.arebuild_index(item_type)`.
 
 ### Path safety
 
@@ -291,7 +299,8 @@ item = await todos.get("1")  # Todo | None
 
 `AsyncInventory` has the same methods and behaviour as `Inventory`, but every
 method is a coroutine. It works with any `AsyncInventoryStorage` adapter:
-`AsyncSQLiteInventoryStorage`, `AsyncRedisInventoryStorage`, `AsyncMongoDBInventoryStorage`,
+`AsyncFileBasedInventoryStorage`, `AsyncDirectoryBasedInventoryStorage`, `AsyncSQLiteInventoryStorage`,
+`AsyncRedisInventoryStorage`, `AsyncMongoDBInventoryStorage`,
 or `InMemoryInventoryStorage` for tests.
 
 ```python

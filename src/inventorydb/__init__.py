@@ -4,6 +4,7 @@ import importlib
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Any
 
+from inventorydb.asyncio.async_file_storage import AsyncDirectoryBasedInventoryStorage, AsyncFileBasedInventoryStorage
 from inventorydb.asyncio.async_inventory import AsyncInventory
 from inventorydb.asyncio.async_mongodb_storage import AsyncMongoDBInventoryStorage
 from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage
@@ -28,6 +29,8 @@ except PackageNotFoundError:  # running from a source tree without installation
     __version__ = "0.0.0"
 
 __all__ = [
+    "AsyncDirectoryBasedInventoryStorage",
+    "AsyncFileBasedInventoryStorage",
     "AsyncInventory",
     "AsyncInventoryStorage",
     "AsyncMongoDBInventoryStorage",
