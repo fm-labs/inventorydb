@@ -69,9 +69,6 @@ Errors are raised, not returned:
 | `patch` a missing item | `inventorydb.errors.ItemNotFoundError` (a `LookupError`) |
 | The storage backend reports a failed write | `inventorydb.errors.InventoryError` |
 
-> **Redis note:** Redis hashes store flat strings only, so non-string values
-> (numbers, booleans, lists, nested dicts) are not preserved by the Redis adapters.
-
 ---
 
 ## Storage Adapters
@@ -142,8 +139,13 @@ client = redis.Redis(host="localhost", port=6379, decode_responses=True)
 storage = RedisInventoryStorage(redis_client=client)
 ```
 
-Items are stored as Redis hashes under the key `{item_type}:{id}`.
-Pass a pre-configured `redis.Redis` client (sync). Requires `redis-py`.
+Each item type is one Redis hash, `inventory:{item_type}`, mapping item ids to
+JSON-encoded items, so value types (numbers, booleans, lists, nested dicts) are
+preserved. Pass `key_prefix="myapp:"` to use a different prefix than `inventory:`.
+
+Pass a pre-configured `redis.Redis` client (sync); `decode_responses` may be on or off.
+Requires `redis-py`. `AsyncRedisInventoryStorage` takes a `redis.asyncio.Redis` client
+and uses the same layout, so sync and async adapters can share data.
 
 ### MongoDB
 

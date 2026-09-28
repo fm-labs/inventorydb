@@ -46,9 +46,9 @@ class TestAsyncRedisInventoryStorageWrite:
     async def test_write_returns_true(self, storage):
         assert await storage.awrite("todo", {"id": "1", "title": "Buy milk"}) is True
 
-    async def test_write_creates_hash_in_redis(self, storage, redis_client):
+    async def test_write_stores_item_in_type_hash(self, storage, redis_client):
         await storage.awrite("todo", {"id": "1", "title": "Buy milk"})
-        assert await redis_client.exists("todo:1")
+        assert await redis_client.hexists("inventory:todo", "1")
 
     async def test_write_stores_all_fields(self, storage):
         item = {"id": "1", "title": "Buy milk", "done": "false"}
@@ -149,10 +149,10 @@ class TestAsyncRedisInventoryStorageDelete:
     async def test_delete_returns_false_for_unknown_type(self, storage):
         assert await storage.adelete("ghost_type", "1") is False
 
-    async def test_delete_removes_key_from_redis(self, storage, redis_client):
+    async def test_delete_removes_item_from_redis(self, storage, redis_client):
         await storage.awrite("todo", {"id": "1"})
         await storage.adelete("todo", "1")
-        assert not await redis_client.exists("todo:1")
+        assert not await redis_client.hexists("inventory:todo", "1")
 
     async def test_delete_item_no_longer_readable(self, storage):
         await storage.awrite("todo", {"id": "1"})
@@ -172,3 +172,36 @@ class TestAsyncRedisInventoryStorageDelete:
         await storage.adelete("todos", "1")
         assert await storage.aselect("todos") == []
         assert await storage.aselect("notes") == [{"id": "1"}]
+
+
+class TestAsyncRedisInventoryStorageLayout:
+    async def test_write_preserves_value_types(self, storage):
+        item = {"id": "1", "done": False, "count": 3, "tags": ["a"], "meta": {"k": None}}
+        await storage.awrite("todo", item)
+        assert await storage.aread("todo", "1") == item
+        assert await storage.aselect("todo") == [item]
+
+    async def test_works_with_bytes_client(self, redis_container):
+        client = redis.asyncio.Redis(
+            host=redis_container.get_container_host_ip(),
+            port=int(redis_container.get_exposed_port(6379)),
+        )
+        try:
+            await client.flushdb()
+            storage = AsyncRedisInventoryStorage(client)
+            await storage.awrite("todo", {"id": "1", "done": True})
+            assert await storage.aread("todo", "1") == {"id": "1", "done": True}
+            assert await storage.aselect("todo") == [{"id": "1", "done": True}]
+        finally:
+            await client.aclose()
+
+    async def test_shares_data_with_sync_storage(self, redis_container, storage):
+        from inventorydb.storage.redis_storage import RedisInventoryStorage
+
+        RedisInventoryStorage(redis_container.get_client()).write("todo", {"id": "1", "n": 1})
+        assert await storage.aread("todo", "1") == {"id": "1", "n": 1}
+
+    async def test_types_sharing_a_prefix_do_not_collide(self, storage):
+        await storage.awrite("todo", {"id": "1"})
+        await storage.awrite("todo:archive", {"id": "2"})
+        assert await storage.aselect("todo") == [{"id": "1"}]

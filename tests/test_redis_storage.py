@@ -1,5 +1,7 @@
 """Tests for RedisInventoryStorage using a real Redis via testcontainers."""
 
+import json
+
 import pytest
 from testcontainers.community.redis import RedisContainer
 
@@ -32,16 +34,6 @@ def storage(redis_client) -> RedisInventoryStorage:
 
 
 # ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def str_item(item: dict) -> dict:
-    """Convert all dict values to strings (Redis stores everything as strings)."""
-    return {k: str(v) for k, v in item.items()}
-
-
-# ---------------------------------------------------------------------------
 # write
 # ---------------------------------------------------------------------------
 
@@ -50,14 +42,16 @@ class TestRedisInventoryStorageWrite:
     def test_write_returns_true(self, storage):
         assert storage.write("todo", {"id": "1", "title": "Buy milk"}) is True
 
-    def test_write_creates_hash_in_redis(self, storage, redis_client):
+    def test_write_stores_item_as_json_in_type_hash(self, storage, redis_client):
         storage.write("todo", {"id": "1", "title": "Buy milk"})
-        assert redis_client.exists("todo:1")
+        raw = redis_client.hget("inventory:todo", "1")
+        assert json.loads(raw) == {"id": "1", "title": "Buy milk"}
 
-    def test_write_stores_all_fields(self, storage):
-        item = {"id": "1", "title": "Buy milk", "done": "false"}
+    def test_write_preserves_value_types(self, storage):
+        item = {"id": "1", "done": False, "count": 3, "ratio": 0.5, "tags": ["a"], "meta": {"k": None}}
         storage.write("todo", item)
         assert storage.read("todo", "1") == item
+        assert storage.select("todo") == [item]
 
     def test_write_updates_existing_item(self, storage):
         storage.write("todo", {"id": "1", "title": "Old"})
@@ -156,7 +150,7 @@ class TestRedisInventoryStorageDelete:
     def test_delete_removes_item_from_redis(self, storage, redis_client):
         storage.write("todo", {"id": "1"})
         storage.delete("todo", "1")
-        assert not redis_client.exists("todo:1")
+        assert not redis_client.hexists("inventory:todo", "1")
 
     def test_delete_item_no_longer_readable(self, storage):
         storage.write("todo", {"id": "1"})
@@ -176,3 +170,44 @@ class TestRedisInventoryStorageDelete:
         storage.delete("todos", "1")
         assert storage.select("todos") == []
         assert storage.select("notes") == [{"id": "1"}]
+
+
+# ---------------------------------------------------------------------------
+# key layout & client configuration
+# ---------------------------------------------------------------------------
+
+
+class TestRedisInventoryStorageLayout:
+    def test_works_with_decode_responses_client(self, redis_container, redis_client):
+        client = redis_container.get_client(decode_responses=True)
+        storage = RedisInventoryStorage(client)
+        item = {"id": "1", "done": True}
+        storage.write("todo", item)
+        assert storage.read("todo", "1") == item
+        assert storage.select("todo") == [item]
+        assert storage.delete("todo", "1") is True
+
+    def test_bytes_and_str_clients_share_data(self, redis_container, storage):
+        storage.write("todo", {"id": "1", "count": 2})
+        str_storage = RedisInventoryStorage(redis_container.get_client(decode_responses=True))
+        assert str_storage.read("todo", "1") == {"id": "1", "count": 2}
+
+    def test_types_sharing_a_prefix_do_not_collide(self, storage):
+        storage.write("todo", {"id": "1"})
+        storage.write("todo:archive", {"id": "2"})
+        storage.write("todo", {"id": "archive:2"})
+        assert sorted(i["id"] for i in storage.select("todo")) == ["1", "archive:2"]
+        assert storage.select("todo:archive") == [{"id": "2"}]
+
+    def test_custom_key_prefix(self, redis_client):
+        storage = RedisInventoryStorage(redis_client, key_prefix="myapp:")
+        storage.write("todo", {"id": "1"})
+        assert redis_client.hexists("myapp:todo", "1")
+        assert not redis_client.exists("inventory:todo")
+
+    def test_different_prefixes_are_isolated(self, redis_client):
+        a = RedisInventoryStorage(redis_client, key_prefix="a:")
+        b = RedisInventoryStorage(redis_client, key_prefix="b:")
+        a.write("todo", {"id": "1"})
+        assert b.read("todo", "1") is None
+        assert b.select("todo") == []

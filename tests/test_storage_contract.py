@@ -109,10 +109,6 @@ def storage(request, tmp_path) -> InventoryStorage:
     return request.param(request, tmp_path)
 
 
-def _is_redis(storage) -> bool:
-    return type(storage).__name__ == "RedisInventoryStorage"
-
-
 class TestStorageContract:
     def test_implements_protocol(self, storage):
         assert isinstance(storage, InventoryStorage)
@@ -168,11 +164,7 @@ class TestStorageContract:
         storage.write("todo", item)
         assert item == {"id": "1", "title": "a"}
 
-    def test_write_preserves_value_types(self, storage, request):
-        if _is_redis(storage):
-            request.applymarker(pytest.mark.xfail(
-                reason="Redis hashes only store flat strings", strict=True,
-            ))
+    def test_write_preserves_value_types(self, storage):
         item = {"id": "1", "done": False, "count": 3, "ratio": 0.5, "tags": ["a"], "meta": {"k": "v"}}
         storage.write("todo", item)
         assert storage.read("todo", "1") == item
@@ -267,6 +259,11 @@ class TestAsyncStorageContract:
     async def test_read_returns_written_item(self, async_storage):
         item = {"id": "1", "title": "Buy milk"}
         assert await async_storage.awrite("todo", item) is True
+        assert await async_storage.aread("todo", "1") == item
+
+    async def test_write_preserves_value_types(self, async_storage):
+        item = {"id": "1", "done": False, "count": 3, "ratio": 0.5, "tags": ["a"], "meta": {"k": "v"}}
+        await async_storage.awrite("todo", item)
         assert await async_storage.aread("todo", "1") == item
 
     async def test_write_replaces_whole_item(self, async_storage):
