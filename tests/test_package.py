@@ -15,10 +15,11 @@ def test_all_names_are_importable():
 
 def test_top_level_names_are_the_submodule_objects():
     from inventorydb.inventory import Inventory
-    from inventorydb.pydantic import PydanticInventory
+    from inventorydb.pydantic import AsyncPydanticInventory, PydanticInventory
 
     assert inventorydb.Inventory is Inventory
     assert inventorydb.PydanticInventory is PydanticInventory
+    assert inventorydb.AsyncPydanticInventory is AsyncPydanticInventory
 
 
 def test_version_is_set():
@@ -40,11 +41,12 @@ def test_import_works_without_optional_dependencies():
         "inv = inventorydb.Inventory('todo', inventorydb.InMemoryInventoryStorage())\n"
         "inv.save({'id': '1'})\n"
         "assert inv.get('1') == {'id': '1'}\n"
-        "try:\n"
-        "    inventorydb.PydanticInventory\n"
-        "except ImportError:\n"
-        "    print('ok')\n"
+        "for name in ('PydanticInventory', 'AsyncPydanticInventory'):\n"
+        "    try:\n"
+        "        getattr(inventorydb, name)\n"
+        "    except ImportError:\n"
+        "        print('ok')\n"
     )
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "ok"
+    assert result.stdout.split() == ["ok", "ok"]

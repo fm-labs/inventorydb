@@ -1,7 +1,39 @@
 import pydantic
 
+from inventorydb.asyncio.async_inventory import AsyncInventory
+from inventorydb.asyncio.async_storage import AsyncInventoryStorage
+from inventorydb.errors import ItemNotFoundError
 from inventorydb.interface import InventoryStorage, Item
-from inventorydb.inventory import Inventory
+from inventorydb.inventory import Inventory, check_patch_data
+
+
+def _dump(model: pydantic.BaseModel) -> Item:
+    """Convert a model to the JSON-compatible dict that is stored."""
+    return model.model_dump(mode="json")
+
+
+def _validated[M: pydantic.BaseModel](model_class: type[M], data: Item | M) -> Item:
+    """Validate ``data`` against ``model_class`` and return the dict to store.
+
+    Runs before every write, so invalid data raises ``ValidationError`` without
+    being stored. This also catches models made invalid after construction
+    (Pydantic does not validate attribute assignment by default).
+    """
+    # dict(model) takes the raw field values, so a model with invalid values is
+    # re-validated (and rejected) rather than serialized as-is.
+    raw = dict(data) if isinstance(data, pydantic.BaseModel) else data
+    return _dump(model_class.model_validate(raw))
+
+
+def _patched[M: pydantic.BaseModel](
+    model_class: type[M], item_type: str, id: str, current: Item | None, data: Item | M
+) -> Item:
+    """Merge patch ``data`` into the ``current`` stored item and validate the result."""
+    patch = dict(data) if isinstance(data, pydantic.BaseModel) else data
+    check_patch_data(id, patch)
+    if current is None:
+        raise ItemNotFoundError(item_type, id)
+    return _validated(model_class, {**current, **patch})
 
 
 class PydanticInventory[M: pydantic.BaseModel]:
@@ -10,6 +42,9 @@ class PydanticInventory[M: pydantic.BaseModel]:
     Wraps an ``Inventory``: items are stored as plain dicts and returned as
     ``model_class`` instances. The model type is inferred from ``model_class``,
     so ``PydanticInventory("todo", storage, Todo).get("1")`` is typed ``Todo | None``.
+
+    ``save`` and ``patch`` validate the complete item before writing it, so data
+    that fails validation raises ``pydantic.ValidationError`` and is never stored.
     """
 
     def __init__(self, item_type: str, storage: InventoryStorage, model_class: type[M]):
@@ -28,8 +63,7 @@ class PydanticInventory[M: pydantic.BaseModel]:
         return [self.model_class.model_validate(item) for item in self.inventory.filter()]
 
     def save(self, model: M) -> M:
-        created_item = self.inventory.save(model.model_dump(mode="json"))
-        return self.model_class.model_validate(created_item)
+        return self.model_class.model_validate(self.inventory.save(_validated(self.model_class, model)))
 
     def get(self, id: str) -> M | None:
         item = self.inventory.get(id)
@@ -38,9 +72,46 @@ class PydanticInventory[M: pydantic.BaseModel]:
         return self.model_class.model_validate(item)
 
     def patch(self, id: str, data: Item | M) -> M:
-        if isinstance(data, pydantic.BaseModel):
-            data = data.model_dump(mode="json")
-        return self.model_class.model_validate(self.inventory.patch(id, data))
+        item = _patched(self.model_class, self.item_type, id, self.inventory.get(id), data)
+        return self.model_class.model_validate(self.inventory.save(item))
 
     def delete(self, id: str) -> bool:
         return self.inventory.delete(id)
+
+
+class AsyncPydanticInventory[M: pydantic.BaseModel]:
+    """Async counterpart of ``PydanticInventory``, backed by an ``AsyncInventoryStorage``.
+
+    Same methods and behaviour as ``PydanticInventory``, but every method is a coroutine.
+    """
+
+    def __init__(self, item_type: str, storage: AsyncInventoryStorage, model_class: type[M]):
+        self.model_class = model_class
+        self.inventory = AsyncInventory(item_type, storage)
+
+    @property
+    def item_type(self) -> str:
+        return self.inventory.item_type
+
+    @property
+    def storage(self) -> AsyncInventoryStorage:
+        return self.inventory.storage
+
+    async def filter(self) -> list[M]:
+        return [self.model_class.model_validate(item) for item in await self.inventory.filter()]
+
+    async def save(self, model: M) -> M:
+        return self.model_class.model_validate(await self.inventory.save(_validated(self.model_class, model)))
+
+    async def get(self, id: str) -> M | None:
+        item = await self.inventory.get(id)
+        if item is None:
+            return None
+        return self.model_class.model_validate(item)
+
+    async def patch(self, id: str, data: Item | M) -> M:
+        item = _patched(self.model_class, self.item_type, id, await self.inventory.get(id), data)
+        return self.model_class.model_validate(await self.inventory.save(item))
+
+    async def delete(self, id: str) -> bool:
+        return await self.inventory.delete(id)

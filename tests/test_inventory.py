@@ -166,8 +166,33 @@ class TestPydanticInventory:
         assert model_todos.patch("1", todo) == Todo(id="1", title="a", done=True)
 
     def test_patch_missing_raises(self, model_todos):
-        with pytest.raises(ItemNotFoundError):
+        with pytest.raises(ItemNotFoundError) as exc_info:
             model_todos.patch("nope", {"done": True})
+        assert exc_info.value.item_type == "todo"
+
+    def test_patch_cannot_change_id(self, model_todos):
+        model_todos.save(Todo(id="1", title="a"))
+        with pytest.raises(ValueError, match="must not change the item id"):
+            model_todos.patch("1", {"id": "2"})
+
+    def test_invalid_patch_is_not_stored(self, model_todos, storage):
+        model_todos.save(Todo(id="1", title="a"))
+        with pytest.raises(pydantic.ValidationError):
+            model_todos.patch("1", {"done": "not a bool"})
+        assert storage.read("todo", "1") == {"id": "1", "title": "a", "done": False}
+        assert model_todos.filter() == [Todo(id="1", title="a")]
+
+    def test_invalid_model_is_not_stored(self, model_todos, storage):
+        todo = Todo(id="1", title="a")
+        todo.done = "not a bool"  # type: ignore[assignment]  # Pydantic does not validate assignment by default
+        with pytest.raises(pydantic.ValidationError):
+            model_todos.save(todo)
+        assert storage.read("todo", "1") is None
+
+    def test_patch_stores_normalized_values(self, model_todos, storage):
+        model_todos.save(Todo(id="1", title="a"))
+        model_todos.patch("1", {"done": "true"})  # coerced by Pydantic
+        assert storage.read("todo", "1") == {"id": "1", "title": "a", "done": True}
 
     def test_delete(self, model_todos):
         model_todos.save(Todo(id="1", title="a"))

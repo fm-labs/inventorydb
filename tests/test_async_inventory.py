@@ -1,9 +1,11 @@
-"""Tests for the AsyncInventory API."""
+"""Tests for the AsyncInventory and AsyncPydanticInventory APIs."""
 
+import pydantic
 import pytest
 
 from inventorydb.asyncio.async_inventory import AsyncInventory
 from inventorydb.errors import InventoryError, ItemNotFoundError
+from inventorydb.pydantic import AsyncPydanticInventory
 from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
 from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
 
@@ -101,3 +103,90 @@ class TestAsyncInventoryDelete:
 
     async def test_delete_missing(self, todos):
         assert await todos.delete("nope") is False
+
+
+# ===========================================================================
+# AsyncPydanticInventory
+# ===========================================================================
+
+
+class Todo(pydantic.BaseModel):
+    id: str
+    title: str
+    done: bool = False
+
+
+@pytest.fixture()
+def model_todos(storage) -> AsyncPydanticInventory[Todo]:
+    return AsyncPydanticInventory(item_type="todo", storage=storage, model_class=Todo)
+
+
+class TestAsyncPydanticInventory:
+    def test_exposes_item_type_and_storage(self, model_todos, storage):
+        assert model_todos.item_type == "todo"
+        assert model_todos.storage is storage
+
+    def test_rejects_sync_only_storage(self, tmp_path):
+        with pytest.raises(TypeError, match="not an AsyncInventoryStorage"):
+            AsyncPydanticInventory("todo", SQLiteInventoryStorage(str(tmp_path / "x.db")), Todo)  # type: ignore[arg-type]
+
+    async def test_save_returns_model(self, model_todos):
+        result = await model_todos.save(Todo(id="1", title="Buy milk"))
+        assert result == Todo(id="1", title="Buy milk")
+
+    async def test_save_stores_plain_dict(self, model_todos, storage):
+        await model_todos.save(Todo(id="1", title="Buy milk"))
+        assert storage.read("todo", "1") == {"id": "1", "title": "Buy milk", "done": False}
+
+    async def test_get_returns_model(self, model_todos):
+        await model_todos.save(Todo(id="1", title="a"))
+        assert isinstance(await model_todos.get("1"), Todo)
+
+    async def test_get_missing_returns_none(self, model_todos):
+        assert await model_todos.get("nope") is None
+
+    async def test_filter_returns_models(self, model_todos):
+        await model_todos.save(Todo(id="1", title="a"))
+        await model_todos.save(Todo(id="2", title="b"))
+        result = await model_todos.filter()
+        assert all(isinstance(t, Todo) for t in result)
+        assert sorted(t.id for t in result) == ["1", "2"]
+
+    async def test_patch_with_dict(self, model_todos):
+        await model_todos.save(Todo(id="1", title="a"))
+        assert await model_todos.patch("1", {"done": True}) == Todo(id="1", title="a", done=True)
+
+    async def test_patch_with_model(self, model_todos):
+        await model_todos.save(Todo(id="1", title="a"))
+        todo = await model_todos.get("1")
+        todo.done = True
+        assert await model_todos.patch("1", todo) == Todo(id="1", title="a", done=True)
+
+    async def test_patch_missing_raises(self, model_todos):
+        with pytest.raises(ItemNotFoundError) as exc_info:
+            await model_todos.patch("nope", {"done": True})
+        assert exc_info.value.item_type == "todo"
+
+    async def test_patch_cannot_change_id(self, model_todos):
+        await model_todos.save(Todo(id="1", title="a"))
+        with pytest.raises(ValueError, match="must not change the item id"):
+            await model_todos.patch("1", {"id": "2"})
+
+    async def test_invalid_patch_is_not_stored(self, model_todos, storage):
+        await model_todos.save(Todo(id="1", title="a"))
+        with pytest.raises(pydantic.ValidationError):
+            await model_todos.patch("1", {"done": "not a bool"})
+        assert storage.read("todo", "1") == {"id": "1", "title": "a", "done": False}
+        assert await model_todos.filter() == [Todo(id="1", title="a")]
+
+    async def test_invalid_model_is_not_stored(self, model_todos, storage):
+        todo = Todo(id="1", title="a")
+        todo.done = "not a bool"  # type: ignore[assignment]  # Pydantic does not validate assignment by default
+        with pytest.raises(pydantic.ValidationError):
+            await model_todos.save(todo)
+        assert storage.read("todo", "1") is None
+
+    async def test_delete(self, model_todos):
+        await model_todos.save(Todo(id="1", title="a"))
+        assert await model_todos.delete("1") is True
+        assert await model_todos.get("1") is None

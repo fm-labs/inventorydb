@@ -11,7 +11,7 @@ __No thrills__ - **just a simple key-value store for serializable Python objects
 
 - Basic CRUD operations: `save`, `get`, `filter`, `patch`, `delete`
 - Multiple storage adapters (in-memory, file-based, SQLite, Redis, MongoDB)
-- Optional Pydantic model validation with `PydanticInventory`
+- Optional Pydantic model validation with `PydanticInventory` / `AsyncPydanticInventory`
 - Async support via `AsyncInventory` with async storage adapters (in-memory, Redis)
 - Easy FastAPI integration with dependency injection
 - Fully typed (ships `py.typed`), checked with `mypy --strict`
@@ -28,7 +28,7 @@ and SQLite storage work out of the box. Install extras for the other backends:
 pip install inventorydb              # core only
 pip install "inventorydb[redis]"     # + redis-py, for (Async)RedisInventoryStorage
 pip install "inventorydb[mongodb]"   # + pymongo, for MongoDBInventoryStorage
-pip install "inventorydb[pydantic]"  # + pydantic, for PydanticInventory
+pip install "inventorydb[pydantic]"  # + pydantic, for (Async)PydanticInventory
 pip install "inventorydb[all]"       # everything
 # or with uv
 uv add "inventorydb[redis]"
@@ -218,6 +218,34 @@ if item is not None:
 The model type is inferred from `model_class`, so type checkers know that
 `todos.get()` returns `Todo | None` and `todos.filter()` returns `list[Todo]`.
 
+`save` and `patch` validate the complete item before writing it. Data that fails
+validation raises `pydantic.ValidationError` and is never stored:
+
+```python
+todos.patch("1", {"done": "not a bool"})  # raises ValidationError; item unchanged
+```
+
+Items are stored in their validated, JSON-compatible form (`model_dump(mode="json")`),
+so values Pydantic coerces are stored normalized: patching `{"done": "true"}` stores `True`.
+
+### Async
+
+`AsyncPydanticInventory` has the same methods and behaviour, as coroutines, and
+takes an async storage adapter:
+
+```python
+from inventorydb.pydantic import AsyncPydanticInventory
+
+todos = AsyncPydanticInventory(
+    item_type="todo",
+    storage=AsyncRedisInventoryStorage(redis.asyncio.Redis()),
+    model_class=Todo,
+)
+
+await todos.save(Todo(id="1", title="Buy milk"))
+item = await todos.get("1")  # Todo | None
+```
+
 ---
 
 ## Async Usage
@@ -240,6 +268,8 @@ await todos.filter()  # → [{"id": "1", ...}]
 await todos.patch("1", {"done": True})  # → {"id": "1", ..., "done": True}
 await todos.delete("1")  # → True
 ```
+
+For Pydantic models, use `AsyncPydanticInventory` (see [Pydantic Models: Async](#async)).
 
 Passing a sync-only adapter (e.g. `SQLiteInventoryStorage`) to `AsyncInventory`
 raises `TypeError`. The adapter methods (`aselect`, `aread`, `awrite`, `adelete`)
@@ -474,7 +504,7 @@ hints. The library itself is checked with `mypy --strict`.
 
 - Items are typed as `inventorydb.Item`, an alias for `dict[str, Any]`.
 - `Inventory` and `AsyncInventory` accept and return `Item`; `get` returns `Item | None`.
-- `PydanticInventory` is generic over its model class, which is inferred from
+- `PydanticInventory` and `AsyncPydanticInventory` are generic over their model class, which is inferred from
   `model_class` (see [Pydantic Models](#pydantic-models)).
 - Storage adapters accept any structurally compatible client. For example,
   `RedisInventoryStorage` takes anything with Redis's `hget`/`hset`/`hdel`/`hvals`

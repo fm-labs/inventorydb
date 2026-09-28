@@ -1,5 +1,6 @@
 """Damn simple object store for Python dicts and Pydantic models across multiple backends."""
 
+import importlib
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Any
 
@@ -16,8 +17,8 @@ from inventorydb.storage.redis_storage import RedisInventoryStorage
 from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
 
 if TYPE_CHECKING:
-    # Lets type checkers see the real class; at runtime it is loaded lazily by __getattr__.
-    from inventorydb.pydantic import PydanticInventory
+    # Lets type checkers see the real classes; at runtime they are loaded lazily by __getattr__.
+    from inventorydb.pydantic import AsyncPydanticInventory, PydanticInventory
 
 try:
     __version__ = version("inventorydb")
@@ -27,6 +28,7 @@ except PackageNotFoundError:  # running from a source tree without installation
 __all__ = [
     "AsyncInventory",
     "AsyncInventoryStorage",
+    "AsyncPydanticInventory",
     "AsyncRedisInventoryStorage",
     "DirectoryBasedInventoryStorage",
     "FileBasedInventoryStorage",
@@ -45,8 +47,6 @@ __all__ = [
 
 def __getattr__(name: str) -> Any:
     # Imported lazily so `import inventorydb` works without pydantic installed.
-    if name == "PydanticInventory":
-        from inventorydb.pydantic import PydanticInventory
-
-        return PydanticInventory
+    if name in ("PydanticInventory", "AsyncPydanticInventory"):
+        return getattr(importlib.import_module("inventorydb.pydantic"), name)
     raise AttributeError(f"module 'inventorydb' has no attribute {name!r}")
