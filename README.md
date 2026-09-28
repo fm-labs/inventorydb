@@ -630,8 +630,8 @@ uv run mypy --allow-untyped-defs --allow-incomplete-defs --allow-untyped-calls t
 
 ### Continuous integration
 
-[GitHub Actions](.github/workflows/ci.yml) runs on every push to `main` and every
-pull request:
+[GitHub Actions](.github/workflows/ci.yml) runs on every push to `main`, every
+pull request, and as the first stage of every [release](#releasing):
 
 | Job | What it does |
 |---|---|
@@ -644,8 +644,40 @@ pull request:
 Run the lint, format, type check and test commands above before pushing to catch
 failures early.
 
+Actions in the release workflow are pinned to commit SHAs.
+[Dependabot](.github/dependabot.yml) checks weekly for new action versions and
+opens a single PR that updates the SHAs and their version comments; it skips
+releases less than a week old.
+
 ### Releasing
 
-`release.sh` refuses to run with uncommitted changes, runs the tests, builds into
-a clean `dist/`, and publishes to TestPyPI and/or PyPI depending on which of
-`TESTPYPI_PUBLISH_TOKEN` and `PYPI_PUBLISH_TOKEN` are set.
+Releases are published by the [release workflow](.github/workflows/release.yml)
+when a tag starting with `v` is pushed. Bump the version, commit, then tag the
+commit with the same version:
+
+```bash
+uv version 0.3.0
+git commit -am "release 0.3.0"
+git tag v0.3.0
+git push origin main v0.3.0
+```
+
+The workflow then:
+
+1. Checks that the tag matches the version in `pyproject.toml` (`v0.3.0` ↔ `0.3.0`) and fails otherwise.
+2. Runs the full CI workflow.
+3. Builds the sdist and wheel and checks their metadata.
+4. Publishes to PyPI with [trusted publishing](https://docs.pypi.org/trusted-publishers/) (no API token).
+5. Creates a GitHub release for the tag with generated release notes and the
+   distributions attached. Pre-release versions (`a`, `b`, `rc`, `.dev`) are
+   marked as pre-releases.
+
+One-time setup: on PyPI, add a trusted publisher for the `fm-labs/inventorydb`
+repository with workflow `release.yml` and environment `pypi`, and create a
+`pypi` environment in the GitHub repository settings (optionally with required
+reviewers, to approve each release before it's published).
+
+To publish from a local machine instead, `release.sh` refuses to run with
+uncommitted changes, runs the tests, builds into a clean `dist/`, and publishes
+to TestPyPI and/or PyPI depending on which of `TESTPYPI_PUBLISH_TOKEN` and
+`PYPI_PUBLISH_TOKEN` are set.
