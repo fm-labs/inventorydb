@@ -12,3 +12,23 @@ updates:
       default-days: 7 # skip releases younger than a week, in case a compromised version gets pulled
     commit-message:
       prefix: ci
+
+  # Keeps uv.lock up to date, so CI tests against current releases.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    # The >= floors in pyproject.toml are deliberate minimum supported versions
+    # (tested by the "minimum dependency versions" CI job), so leave them alone and
+    # only update the lockfile when a new release already satisfies them.
+    versioning-strategy: increase-if-necessary
+    groups:
+      # Libraries the adapters integrate with; a new release can break an adapter.
+      backends:
+        patterns: ["redis", "pymongo", "pydantic"]
+      dev-tools:
+        patterns: ["*"]
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: deps

@@ -4,7 +4,7 @@ on:
   push:
     tags: ["v*"]
 
-# Actions are pinned to commit SHAs because this workflow publishes to PyPI.
+# Actions are pinned to commit SHAs (updated by Dependabot).
 permissions:
   contents: read
 
@@ -66,9 +66,51 @@ jobs:
           path: dist/
           if-no-files-found: error
 
+  # A dry run on TestPyPI; if the upload or the install check fails, nothing is published to PyPI.
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: [check-version, build]
+    runs-on: ubuntu-latest
+    # Trusted publishing, like PyPI below, but configured on test.pypi.org.
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/inventorydb/${{ needs.check-version.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # TestPyPI rejects re-uploads, so re-running a release whose PyPI step failed would fail here.
+          skip-existing: true
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          enable-cache: false
+      - name: Install from TestPyPI
+        env:
+          VERSION: ${{ needs.check-version.outputs.version }}
+        # Only TestPyPI is used as the index, which works because the package has no
+        # required dependencies. New uploads can take a minute to appear, so retry.
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if uv run --isolated --no-project --no-cache \
+                --index-url https://test.pypi.org/simple/ --with "inventorydb==${VERSION}" \
+                python -c "import importlib.metadata as m, inventorydb; assert m.version('inventorydb') == '${VERSION}'"; then
+              exit 0
+            fi
+            echo "inventorydb ${VERSION} not installable from TestPyPI yet (attempt ${attempt}), retrying in 20s ..."
+            sleep 20
+          done
+          echo "::error::inventorydb ${VERSION} could not be installed from TestPyPI."
+          exit 1
+
   publish-pypi:
     name: Publish to PyPI
-    needs: [check-version, build]
+    needs: [check-version, publish-testpypi]
     runs-on: ubuntu-latest
     # Trusted publishing: configure a publisher for this repository, workflow
     # (release.yml) and environment on PyPI; no API token is needed.

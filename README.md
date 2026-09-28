@@ -644,10 +644,14 @@ pull request, and as the first stage of every [release](#releasing):
 Run the lint, format, type check and test commands above before pushing to catch
 failures early.
 
-Actions in the release workflow are pinned to commit SHAs.
-[Dependabot](.github/dependabot.yml) checks weekly for new action versions and
-opens a single PR that updates the SHAs and their version comments; it skips
-releases less than a week old.
+[Dependabot](.github/dependabot.yml) checks weekly for updates and skips
+releases less than a week old:
+
+- **GitHub Actions:** all actions in both workflows are pinned to commit SHAs;
+  one PR updates the SHAs and their version comments.
+- **Python dependencies:** PRs that update `uv.lock`, one for the backend
+  libraries (`redis`, `pymongo`, `pydantic`) and one for dev tools. The `>=`
+  minimum versions in `pyproject.toml` are left unchanged.
 
 ### Releasing
 
@@ -667,15 +671,23 @@ The workflow then:
 1. Checks that the tag matches the version in `pyproject.toml` (`v0.3.0` ↔ `0.3.0`) and fails otherwise.
 2. Runs the full CI workflow.
 3. Builds the sdist and wheel and checks their metadata.
-4. Publishes to PyPI with [trusted publishing](https://docs.pypi.org/trusted-publishers/) (no API token).
-5. Creates a GitHub release for the tag with generated release notes and the
+4. Publishes to TestPyPI and checks that the new version installs from there.
+   If either fails, nothing is published to PyPI.
+5. Publishes to PyPI. Both uploads use
+   [trusted publishing](https://docs.pypi.org/trusted-publishers/), so no API tokens are stored.
+6. Creates a GitHub release for the tag with generated release notes and the
    distributions attached. Pre-release versions (`a`, `b`, `rc`, `.dev`) are
    marked as pre-releases.
 
-One-time setup: on PyPI, add a trusted publisher for the `fm-labs/inventorydb`
-repository with workflow `release.yml` and environment `pypi`, and create a
-`pypi` environment in the GitHub repository settings (optionally with required
-reviewers, to approve each release before it's published).
+One-time setup:
+
+- On [PyPI](https://pypi.org), add a trusted publisher for the `fm-labs/inventorydb`
+  repository with workflow `release.yml` and environment `pypi`.
+- On [TestPyPI](https://test.pypi.org), add the same trusted publisher with
+  environment `testpypi`.
+- In the GitHub repository settings, create the `testpypi` and `pypi`
+  environments. Add required reviewers to `pypi` to approve each release after
+  the TestPyPI check and before it's published.
 
 To publish from a local machine instead, `release.sh` refuses to run with
 uncommitted changes, runs the tests, builds into a clean `dist/`, and publishes
