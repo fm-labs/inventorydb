@@ -66,6 +66,34 @@ jobs:
           path: dist/
           if-no-files-found: error
 
+  github-release:
+    name: Create GitHub release
+    needs: [check-version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist/
+      - name: Create release with distributions attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.check-version.outputs.prerelease }}
+        run: |
+          flags=()
+          if [[ "${PRERELEASE}" == "true" ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "${TAG}" dist/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${TAG}" \
+            --generate-notes \
+            --verify-tag \
+            "${flags[@]}"
+
   # A dry run on TestPyPI; if the upload or the install check fails, nothing is published to PyPI.
   publish-testpypi:
     name: Publish to TestPyPI
@@ -128,31 +156,3 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
-
-  github-release:
-    name: Create GitHub release
-    needs: [check-version, publish-pypi]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: dist
-          path: dist/
-      - name: Create release with distributions attached
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-          PRERELEASE: ${{ needs.check-version.outputs.prerelease }}
-        run: |
-          flags=()
-          if [[ "${PRERELEASE}" == "true" ]]; then
-            flags+=(--prerelease)
-          fi
-          gh release create "${TAG}" dist/* \
-            --repo "${GITHUB_REPOSITORY}" \
-            --title "${TAG}" \
-            --generate-notes \
-            --verify-tag \
-            "${flags[@]}"
