@@ -1,0 +1,28 @@
+# Async to-do list backed by SQLite. No extra dependencies needed.
+# Set SQLITE_DB_PATH to use a different database file.
+import asyncio
+import os
+
+from inventorydb.asyncio.async_inventory import AsyncInventory
+from inventorydb.asyncio.async_sqlite_storage import AsyncSQLiteInventoryStorage
+
+
+async def main() -> None:
+    storage = AsyncSQLiteInventoryStorage(db_path=os.getenv("SQLITE_DB_PATH", "todos.db"))
+    todos_inventory = AsyncInventory(item_type="todo", storage=storage)
+
+    # Create some to-do items
+    await todos_inventory.save({"id": "1", "name": "Buy groceries", "status": "pending"})
+    await todos_inventory.save({"id": "2", "name": "Walk the dog", "status": "pending"})
+    print("All To-dos:", await todos_inventory.filter())
+
+    # Update a to-do item
+    updated_todo = await todos_inventory.patch("1", {"status": "completed"})
+    print("Updated To-do:", updated_todo)
+
+    # Delete the to-do items
+    for todo_id in await todos_inventory.keys():
+        print(f"Deleted To-do {todo_id}:", await todos_inventory.delete(todo_id))
+
+
+asyncio.run(main())
