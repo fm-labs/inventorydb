@@ -90,6 +90,9 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           enable-cache: false
+          # The minimum supported version (requires-python). Without it uv uses the runner's
+          # system Python, which may be too old to install the package.
+          python-version: "3.13"
       - name: Install from TestPyPI
         env:
           VERSION: ${{ needs.check-version.outputs.version }}
