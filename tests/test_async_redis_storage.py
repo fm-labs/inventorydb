@@ -1,7 +1,7 @@
 """Tests for AsyncRedisInventoryStorage using a real Redis via testcontainers."""
 
-import redis.asyncio
 import pytest
+import redis.asyncio
 from testcontainers.community.redis import RedisContainer
 
 from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage

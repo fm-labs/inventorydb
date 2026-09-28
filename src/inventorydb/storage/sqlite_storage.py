@@ -1,9 +1,9 @@
 import json
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator, List, Optional
 
-from inventorydb.interface import InventoryStorage
+from inventorydb.interface import InventoryStorage, Item
 
 CREATE_TABLE_SQL = """
     CREATE TABLE IF NOT EXISTS items (
@@ -34,7 +34,7 @@ class SQLiteInventoryStorage(InventoryStorage):
         finally:
             conn.close()
 
-    def select(self, item_type: str) -> List[dict]:
+    def select(self, item_type: str) -> list[Item]:
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT data FROM items WHERE item_type = ?",
@@ -42,7 +42,7 @@ class SQLiteInventoryStorage(InventoryStorage):
             ).fetchall()
         return [json.loads(row["data"]) for row in rows]
 
-    def read(self, item_type: str, id: str) -> Optional[dict]:
+    def read(self, item_type: str, id: str) -> Item | None:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT data FROM items WHERE item_type = ? AND id = ?",
@@ -50,7 +50,7 @@ class SQLiteInventoryStorage(InventoryStorage):
             ).fetchone()
         return json.loads(row["data"]) if row else None
 
-    def write(self, item_type: str, item: dict) -> bool:
+    def write(self, item_type: str, item: Item) -> bool:
         with self._connect() as conn:
             conn.execute(
                 """

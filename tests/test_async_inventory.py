@@ -26,7 +26,7 @@ class FailingStorage(InMemoryInventoryStorage):
 class TestAsyncInventoryInit:
     def test_rejects_sync_only_storage(self, tmp_path):
         with pytest.raises(TypeError, match="not an AsyncInventoryStorage"):
-            AsyncInventory("todo", SQLiteInventoryStorage(str(tmp_path / "x.db")))
+            AsyncInventory("todo", SQLiteInventoryStorage(str(tmp_path / "x.db")))  # type: ignore[arg-type]
 
 
 class TestAsyncInventorySave:

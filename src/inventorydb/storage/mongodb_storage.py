@@ -1,29 +1,34 @@
-from typing import Optional, List
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any
 
-from inventorydb.interface import InventoryStorage
+from inventorydb.interface import InventoryStorage, Item
+
+if TYPE_CHECKING:
+    from pymongo import MongoClient
+    from pymongo.collection import Collection
 
 
 class MongoDBInventoryStorage(InventoryStorage):
     """MongoDB-based storage implementation for inventory items."""
 
-    def __init__(self, mongo_client):
+    def __init__(self, mongo_client: "MongoClient[Item]"):
         self.mongo_client = mongo_client
 
-    def get_mongo_collection(self, item_type: str):
+    def get_mongo_collection(self, item_type: str) -> "Collection[Item]":
         db = self.mongo_client['inventory']
         return db[item_type]
 
-    def select(self, item_type: str, query: Optional[dict] = None) -> List[dict]:
+    def select(self, item_type: str, query: Mapping[str, Any] | None = None) -> list[Item]:
         """Return all items of a type. ``query`` is a MongoDB-only extension to filter results."""
         collection = self.get_mongo_collection(item_type)
         return list(collection.find(query or {}, {'_id': False}))
 
-    def write(self, item_type: str, item: dict) -> bool:
+    def write(self, item_type: str, item: Item) -> bool:
         collection = self.get_mongo_collection(item_type)
         collection.replace_one({'id': item['id']}, item, upsert=True)
         return True
 
-    def read(self, item_type: str, id: str) -> Optional[dict]:
+    def read(self, item_type: str, id: str) -> Item | None:
         collection = self.get_mongo_collection(item_type)
         return collection.find_one({'id': id}, {'_id': False})
 

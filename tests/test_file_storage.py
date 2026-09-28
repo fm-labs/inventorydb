@@ -5,11 +5,11 @@ import os
 
 import pytest
 
+from inventorydb.interface import Item
 from inventorydb.storage.file_storage import (
     DirectoryBasedInventoryStorage,
     FileBasedInventoryStorage,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers / shared fixtures
@@ -31,7 +31,7 @@ def dir_storage(base_dir) -> DirectoryBasedInventoryStorage:
     return DirectoryBasedInventoryStorage(base_dir)
 
 
-def seed_file(base_dir: str, item_type: str, items: list) -> None:
+def seed_file(base_dir: str, item_type: str, items: list[Item]) -> None:
     """Pre-create a type's JSON file with the given items."""
     path = os.path.join(base_dir, f"{item_type}.json")
     with open(path, "w") as f:

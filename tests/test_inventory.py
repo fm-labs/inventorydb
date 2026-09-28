@@ -124,11 +124,15 @@ class Todo(pydantic.BaseModel):
 
 
 @pytest.fixture()
-def model_todos(storage) -> PydanticInventory:
+def model_todos(storage) -> PydanticInventory[Todo]:
     return PydanticInventory(item_type="todo", storage=storage, model_class=Todo)
 
 
 class TestPydanticInventory:
+    def test_exposes_item_type_and_storage(self, model_todos, storage):
+        assert model_todos.item_type == "todo"
+        assert model_todos.storage is storage
+
     def test_save_returns_model(self, model_todos):
         result = model_todos.save(Todo(id="1", title="Buy milk"))
         assert result == Todo(id="1", title="Buy milk")

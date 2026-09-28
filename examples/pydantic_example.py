@@ -20,6 +20,7 @@ print("Created To-do:", created_todo)
 # Read the to-do item
 fetched_todo = todos_inventory.get("1")
 print("Fetched To-do:", fetched_todo)
+assert fetched_todo is not None  # get() returns None for a missing id
 
 # Update the to-do item
 fetched_todo.completed = True

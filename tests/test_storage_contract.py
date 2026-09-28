@@ -11,11 +11,12 @@ available. The MongoDB image can be overridden with INVENTORYDB_TEST_MONGO_IMAGE
 import os
 import shutil
 import subprocess
+from collections.abc import AsyncIterator
 
 import pytest
 
-from inventorydb.interface import InventoryStorage
 from inventorydb.asyncio.async_storage import AsyncInventoryStorage
+from inventorydb.interface import InventoryStorage
 from inventorydb.storage.file_storage import (
     DirectoryBasedInventoryStorage,
     FileBasedInventoryStorage,
@@ -111,7 +112,8 @@ SYNC_ADAPTERS = [
 
 @pytest.fixture(params=SYNC_ADAPTERS)
 def storage(request, tmp_path) -> InventoryStorage:
-    return request.param(request, tmp_path)
+    adapter: InventoryStorage = request.param(request, tmp_path)
+    return adapter
 
 
 class TestStorageContract:
@@ -243,7 +245,7 @@ ASYNC_ADAPTERS = [
 
 
 @pytest.fixture(params=ASYNC_ADAPTERS)
-async def async_storage(request) -> AsyncInventoryStorage:
+async def async_storage(request) -> AsyncIterator[AsyncInventoryStorage]:
     storage = await request.param(request)
     yield storage
     client = getattr(storage, "redis_client", None)

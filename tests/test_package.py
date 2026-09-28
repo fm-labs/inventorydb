@@ -3,6 +3,8 @@
 import subprocess
 import sys
 
+import pytest
+
 import inventorydb
 
 
@@ -24,12 +26,8 @@ def test_version_is_set():
 
 
 def test_unknown_attribute_raises():
-    try:
-        inventorydb.DoesNotExist
-    except AttributeError as e:
-        assert "DoesNotExist" in str(e)
-    else:
-        raise AssertionError("expected AttributeError")
+    with pytest.raises(AttributeError, match="DoesNotExist"):
+        _ = inventorydb.DoesNotExist
 
 
 def test_import_works_without_optional_dependencies():

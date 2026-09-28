@@ -4,7 +4,6 @@ import pytest
 
 from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

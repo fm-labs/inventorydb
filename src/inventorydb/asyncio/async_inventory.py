@@ -1,17 +1,16 @@
-from typing import List
-
 from inventorydb.asyncio.async_storage import AsyncInventoryStorage
 from inventorydb.errors import InventoryError, ItemNotFoundError
-from inventorydb.inventory import check_patch_data, require_item_id
+from inventorydb.interface import Item
+from inventorydb.inventory import check_patch_data, require_item_id, require_read_back
 
 
-class AsyncInventory[T]:
+class AsyncInventory:
     """Async counterpart of ``Inventory``, backed by an ``AsyncInventoryStorage``.
 
     Same methods and behaviour as ``Inventory``, but every method is a coroutine.
     """
 
-    def __init__(self, item_type, storage: AsyncInventoryStorage):
+    def __init__(self, item_type: str, storage: AsyncInventoryStorage):
         if not isinstance(storage, AsyncInventoryStorage):
             raise TypeError(
                 f"{type(storage).__name__} is not an AsyncInventoryStorage; "
@@ -20,19 +19,19 @@ class AsyncInventory[T]:
         self.storage = storage
         self.item_type = item_type
 
-    async def filter(self) -> List[T]:
+    async def filter(self) -> list[Item]:
         return await self.storage.aselect(self.item_type)
 
-    async def get(self, id: str) -> T | None:
+    async def get(self, id: str) -> Item | None:
         return await self.storage.aread(self.item_type, id)
 
-    async def save(self, item: T) -> T:
+    async def save(self, item: Item) -> Item:
         _id = require_item_id(item)
         if not await self.storage.awrite(self.item_type, item):
             raise InventoryError(f"Failed to save item '{_id}'.")
-        return await self.storage.aread(self.item_type, _id)
+        return require_read_back(await self.storage.aread(self.item_type, _id), self.item_type, _id)
 
-    async def patch(self, id: str, data: dict) -> T:
+    async def patch(self, id: str, data: Item) -> Item:
         check_patch_data(id, data)
         item = await self.storage.aread(self.item_type, id)
         if item is None:
@@ -40,7 +39,7 @@ class AsyncInventory[T]:
         item.update(data)
         if not await self.storage.awrite(self.item_type, item):
             raise InventoryError(f"Failed to patch item '{id}'.")
-        return await self.storage.aread(self.item_type, id)
+        return require_read_back(await self.storage.aread(self.item_type, id), self.item_type, id)
 
     async def delete(self, id: str) -> bool:
         return await self.storage.adelete(self.item_type, id)

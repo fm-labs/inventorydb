@@ -1,18 +1,23 @@
 """Damn simple object store for Python dicts and Pydantic models across multiple backends."""
 
 from importlib.metadata import PackageNotFoundError, version
+from typing import TYPE_CHECKING, Any
 
 from inventorydb.asyncio.async_inventory import AsyncInventory
 from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage
 from inventorydb.asyncio.async_storage import AsyncInventoryStorage
 from inventorydb.errors import InventoryError, ItemNotFoundError
-from inventorydb.interface import InventoryStorage
+from inventorydb.interface import InventoryStorage, Item
 from inventorydb.inventory import Inventory
 from inventorydb.storage.file_storage import DirectoryBasedInventoryStorage, FileBasedInventoryStorage
 from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
 from inventorydb.storage.mongodb_storage import MongoDBInventoryStorage
 from inventorydb.storage.redis_storage import RedisInventoryStorage
 from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
+
+if TYPE_CHECKING:
+    # Lets type checkers see the real class; at runtime it is loaded lazily by __getattr__.
+    from inventorydb.pydantic import PydanticInventory
 
 try:
     __version__ = version("inventorydb")
@@ -29,6 +34,7 @@ __all__ = [
     "Inventory",
     "InventoryError",
     "InventoryStorage",
+    "Item",
     "ItemNotFoundError",
     "MongoDBInventoryStorage",
     "PydanticInventory",
@@ -37,7 +43,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name):
+def __getattr__(name: str) -> Any:
     # Imported lazily so `import inventorydb` works without pydantic installed.
     if name == "PydanticInventory":
         from inventorydb.pydantic import PydanticInventory

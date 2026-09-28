@@ -1,8 +1,7 @@
 import copy
-from typing import List, Optional
 
 from inventorydb.asyncio.async_storage import AsyncInventoryStorage
-from inventorydb.interface import InventoryStorage
+from inventorydb.interface import InventoryStorage, Item
 
 
 class InMemoryInventoryStorage(InventoryStorage, AsyncInventoryStorage):
@@ -12,16 +11,16 @@ class InMemoryInventoryStorage(InventoryStorage, AsyncInventoryStorage):
     mutable state with the store.
     """
 
-    def __init__(self):
-        self.data = {}
+    def __init__(self) -> None:
+        self.data: dict[str, dict[str, Item]] = {}
 
-    def select(self, item_type: str) -> List[dict]:
+    def select(self, item_type: str) -> list[Item]:
         return copy.deepcopy(list(self.data.get(item_type, {}).values()))
 
-    def read(self, item_type: str, id: str) -> Optional[dict]:
+    def read(self, item_type: str, id: str) -> Item | None:
         return copy.deepcopy(self.data.get(item_type, {}).get(id))
 
-    def write(self, item_type: str, item: dict) -> bool:
+    def write(self, item_type: str, item: Item) -> bool:
         if item_type not in self.data:
             self.data[item_type] = {}
         self.data[item_type][item['id']] = copy.deepcopy(item)
@@ -33,13 +32,13 @@ class InMemoryInventoryStorage(InventoryStorage, AsyncInventoryStorage):
             return True
         return False
 
-    async def aselect(self, item_type: str) -> List[dict]:
+    async def aselect(self, item_type: str) -> list[Item]:
         return self.select(item_type)
 
-    async def aread(self, item_type: str, id: str) -> Optional[dict]:
+    async def aread(self, item_type: str, id: str) -> Item | None:
         return self.read(item_type, id)
 
-    async def awrite(self, item_type: str, item: dict) -> bool:
+    async def awrite(self, item_type: str, item: Item) -> bool:
         return self.write(item_type, item)
 
     async def adelete(self, item_type: str, id: str) -> bool:

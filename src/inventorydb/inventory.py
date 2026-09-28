@@ -1,10 +1,10 @@
-from typing import List
+from typing import Any
 
 from inventorydb.errors import InventoryError, ItemNotFoundError
-from inventorydb.interface import InventoryStorage
+from inventorydb.interface import InventoryStorage, Item
 
 
-def require_item_id(item: dict) -> str:
+def require_item_id(item: Item) -> Any:
     """Return the item's id, raising ``ValueError`` if it is missing or empty."""
     _id = item.get("id")
     if not _id:
@@ -12,31 +12,38 @@ def require_item_id(item: dict) -> str:
     return _id
 
 
-def check_patch_data(id: str, data: dict) -> None:
+def check_patch_data(id: str, data: Item) -> None:
     """Raise ``ValueError`` if patch data would change the item id."""
     if "id" in data and data["id"] != id:
         raise ValueError("Patch data must not change the item id.")
 
 
-class Inventory[T]:
+def require_read_back(item: Item | None, item_type: str, id: str) -> Item:
+    """Return an item read back after a successful write, raising if it vanished."""
+    if item is None:
+        raise InventoryError(f"Item '{id}' of type '{item_type}' could not be read back after writing.")
+    return item
 
-    def __init__(self, item_type, storage: InventoryStorage):
+
+class Inventory:
+
+    def __init__(self, item_type: str, storage: InventoryStorage):
         self.storage = storage
         self.item_type = item_type
 
-    def filter(self) -> List[T]:
+    def filter(self) -> list[Item]:
         return self.storage.select(self.item_type)
 
-    def get(self, id: str) -> T | None:
+    def get(self, id: str) -> Item | None:
         return self.storage.read(self.item_type, id)
 
-    def save(self, item: T) -> T:
+    def save(self, item: Item) -> Item:
         _id = require_item_id(item)
         if not self.storage.write(self.item_type, item):
             raise InventoryError(f"Failed to save item '{_id}'.")
-        return self.storage.read(self.item_type, _id)
+        return require_read_back(self.storage.read(self.item_type, _id), self.item_type, _id)
 
-    def patch(self, id: str, data: dict) -> T:
+    def patch(self, id: str, data: Item) -> Item:
         check_patch_data(id, data)
         item = self.storage.read(self.item_type, id)
         if item is None:
@@ -44,7 +51,7 @@ class Inventory[T]:
         item.update(data)
         if not self.storage.write(self.item_type, item):
             raise InventoryError(f"Failed to patch item '{id}'.")
-        return self.storage.read(self.item_type, id)
+        return require_read_back(self.storage.read(self.item_type, id), self.item_type, id)
 
     def delete(self, id: str) -> bool:
         return self.storage.delete(self.item_type, id)

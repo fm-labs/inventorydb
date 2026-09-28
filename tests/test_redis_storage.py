@@ -7,7 +7,6 @@ from testcontainers.community.redis import RedisContainer
 
 from inventorydb.storage.redis_storage import RedisInventoryStorage
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

@@ -1,8 +1,7 @@
 import json
 import os
-from typing import List, Optional
 
-from inventorydb.interface import InventoryStorage
+from inventorydb.interface import InventoryStorage, Item
 
 
 def _safe_name(name: str, kind: str) -> str:
@@ -26,10 +25,10 @@ class FileBasedInventoryStorage(InventoryStorage):
         if not os.path.exists(self.inventory_dir):
             raise ValueError(f"Base directory {self.inventory_dir} does not exist.")
 
-    def select(self, item_type: str) -> List[dict]:
+    def select(self, item_type: str) -> list[Item]:
         return self._read_file(item_type)
 
-    def write(self, item_type: str, item: dict) -> bool:
+    def write(self, item_type: str, item: Item) -> bool:
         items = self.select(item_type)
         for i, existing_item in enumerate(items):
             if existing_item["id"] == item["id"]:
@@ -40,7 +39,7 @@ class FileBasedInventoryStorage(InventoryStorage):
         self._write_file(item_type, items)
         return True
 
-    def read(self, item_type: str, id: str) -> Optional[dict]:
+    def read(self, item_type: str, id: str) -> Item | None:
         items = self.select(item_type)
         for item in items:
             if item["id"] == id:
@@ -58,14 +57,15 @@ class FileBasedInventoryStorage(InventoryStorage):
     def _file_path(self, item_type: str) -> str:
         return os.path.join(self.inventory_dir, f"{_safe_name(item_type, 'item type')}.json")
 
-    def _read_file(self, item_type: str) -> list:
+    def _read_file(self, item_type: str) -> list[Item]:
         file_path = self._file_path(item_type)
         if not os.path.exists(file_path):
             return []
-        with open(file_path, 'r') as f:
-            return json.load(f)
+        with open(file_path) as f:
+            items: list[Item] = json.load(f)
+        return items
 
-    def _write_file(self, item_type: str, data: list) -> None:
+    def _write_file(self, item_type: str, data: list[Item]) -> None:
         with open(self._file_path(item_type), 'w') as f:
             json.dump(data, f, indent=4)
 
@@ -84,18 +84,18 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
     def _item_path(self, item_type: str, id: str) -> str:
         return os.path.join(self._type_dir(item_type), f"{_safe_name(id, 'item id')}.json")
 
-    def select(self, item_type: str) -> List[dict]:
+    def select(self, item_type: str) -> list[Item]:
         type_dir = self._type_dir(item_type)
         if not os.path.exists(type_dir):
             return []
         items = []
         for filename in os.listdir(type_dir):
             if filename.endswith(".json"):
-                with open(os.path.join(type_dir, filename), 'r') as f:
+                with open(os.path.join(type_dir, filename)) as f:
                     items.append(json.load(f))
         return items
 
-    def write(self, item_type: str, item: dict) -> bool:
+    def write(self, item_type: str, item: Item) -> bool:
         item_id = item.get("id")
         if not item_id:
             raise ValueError("Item must have an 'id' field.")
@@ -105,12 +105,13 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
             json.dump(item, f, indent=4)
         return True
 
-    def read(self, item_type: str, id: str) -> Optional[dict]:
+    def read(self, item_type: str, id: str) -> Item | None:
         item_path = self._item_path(item_type, id)
         if not os.path.exists(item_path):
             return None
-        with open(item_path, 'r') as f:
-            return json.load(f)
+        with open(item_path) as f:
+            item: Item = json.load(f)
+        return item
 
     def delete(self, item_type: str, id: str) -> bool:
         item_path = self._item_path(item_type, id)

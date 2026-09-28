@@ -2,7 +2,8 @@
 from inventorydb.inventory import Inventory
 from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
 
-todos_inventory = Inventory(item_type="todo", storage=InMemoryInventoryStorage())  # Replace with actual storage instance
+# Replace with actual storage instance
+todos_inventory = Inventory(item_type="todo", storage=InMemoryInventoryStorage())
 
 # Create a new to-do item
 new_todo = {"id": "1", "name": "Buy groceries", "status": "pending"}

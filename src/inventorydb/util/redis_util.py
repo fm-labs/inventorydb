@@ -1,11 +1,16 @@
 import os
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import redis
+    import redis.asyncio
 
 
 def get_async_redis_client() -> "redis.asyncio.Redis":
     try:
         import redis.asyncio
     except ImportError:
-        raise ImportError("redis is not installed. Please install it with 'pip install redis'.")
+        raise ImportError("redis is not installed. Please install it with 'pip install redis'.") from None
 
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     if not redis_url:
@@ -22,7 +27,7 @@ def get_redis_client() -> "redis.Redis":
     try:
         import redis
     except ImportError:
-        raise ImportError("redis is not installed. Please install it with 'pip install redis'.")
+        raise ImportError("redis is not installed. Please install it with 'pip install redis'.") from None
 
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     if not redis_url:
