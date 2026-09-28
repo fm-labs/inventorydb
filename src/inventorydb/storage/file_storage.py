@@ -2,6 +2,7 @@ import json
 import os
 
 from inventorydb.interface import InventoryStorage, Item
+from inventorydb.util.file_util import atomic_write_json, locked
 
 
 def _safe_name(name: str, kind: str) -> str:
@@ -12,7 +13,13 @@ def _safe_name(name: str, kind: str) -> str:
 
 
 class FileBasedInventoryStorage(InventoryStorage):
-    """Simple file-based storage that saves all items of a given inventory type in a single JSON file."""
+    """Simple file-based storage that saves all items of a given inventory type in a single JSON file.
+
+    Safe for concurrent use by multiple threads and processes on the same machine:
+    writes hold an exclusive lock on ``.{item_type}.json.lock`` for the whole
+    read-modify-write cycle, and files are replaced atomically. Locks are advisory
+    and may not work on network file systems.
+    """
 
     def __init__(self, base_dir: str):
         self.inventory_dir = base_dir
@@ -20,17 +27,23 @@ class FileBasedInventoryStorage(InventoryStorage):
             raise ValueError(f"Base directory {self.inventory_dir} does not exist.")
 
     def select(self, item_type: str) -> list[Item]:
-        return self._read_file(item_type)
+        file_path = self._file_path(item_type)
+        if not os.path.exists(file_path):
+            return []
+        with locked(self._lock_path(item_type), shared=True):
+            return self._load(file_path)
 
     def write(self, item_type: str, item: Item) -> bool:
-        items = self.select(item_type)
-        for i, existing_item in enumerate(items):
-            if existing_item["id"] == item["id"]:
-                items[i] = item
-                break
-        else:
-            items.append(item)
-        self._write_file(item_type, items)
+        file_path = self._file_path(item_type)
+        with locked(self._lock_path(item_type)):
+            items = self._load(file_path)
+            for i, existing_item in enumerate(items):
+                if existing_item["id"] == item["id"]:
+                    items[i] = item
+                    break
+            else:
+                items.append(item)
+            atomic_write_json(file_path, items)
         return True
 
     def read(self, item_type: str, id: str) -> Item | None:
@@ -41,27 +54,32 @@ class FileBasedInventoryStorage(InventoryStorage):
         return None
 
     def delete(self, item_type: str, id: str) -> bool:
-        items = self.select(item_type)
-        remaining = [item for item in items if item["id"] != id]
-        if len(remaining) == len(items):
+        file_path = self._file_path(item_type)
+        if not os.path.exists(file_path):
             return False
-        self._write_file(item_type, remaining)
+        with locked(self._lock_path(item_type)):
+            items = self._load(file_path)
+            remaining = [item for item in items if item["id"] != id]
+            if len(remaining) == len(items):
+                return False
+            atomic_write_json(file_path, remaining)
         return True
 
     def _file_path(self, item_type: str) -> str:
         return os.path.join(self.inventory_dir, f"{_safe_name(item_type, 'item type')}.json")
 
-    def _read_file(self, item_type: str) -> list[Item]:
-        file_path = self._file_path(item_type)
-        if not os.path.exists(file_path):
-            return []
-        with open(file_path) as f:
-            items: list[Item] = json.load(f)
-        return items
+    def _lock_path(self, item_type: str) -> str:
+        return os.path.join(self.inventory_dir, f".{_safe_name(item_type, 'item type')}.json.lock")
 
-    def _write_file(self, item_type: str, data: list[Item]) -> None:
-        with open(self._file_path(item_type), "w") as f:
-            json.dump(data, f, indent=4)
+    @staticmethod
+    def _load(file_path: str) -> list[Item]:
+        """Load a type file; the caller must hold its lock. A missing file means no items."""
+        try:
+            with open(file_path) as f:
+                items: list[Item] = json.load(f)
+        except FileNotFoundError:
+            return []
+        return items
 
 
 class DirectoryBasedInventoryStorage(InventoryStorage):
@@ -85,8 +103,11 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
         items = []
         for filename in os.listdir(type_dir):
             if filename.endswith(".json"):
-                with open(os.path.join(type_dir, filename)) as f:
-                    items.append(json.load(f))
+                try:
+                    with open(os.path.join(type_dir, filename)) as f:
+                        items.append(json.load(f))
+                except FileNotFoundError:
+                    continue  # deleted by another process since listdir()
         return items
 
     def write(self, item_type: str, item: Item) -> bool:
@@ -95,21 +116,22 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
             raise ValueError("Item must have an 'id' field.")
         item_path = self._item_path(item_type, item_id)
         os.makedirs(self._type_dir(item_type), exist_ok=True)
-        with open(item_path, "w") as f:
-            json.dump(item, f, indent=4)
+        atomic_write_json(item_path, item)
         return True
 
     def read(self, item_type: str, id: str) -> Item | None:
         item_path = self._item_path(item_type, id)
-        if not os.path.exists(item_path):
+        try:
+            with open(item_path) as f:
+                item: Item = json.load(f)
+        except FileNotFoundError:
             return None
-        with open(item_path) as f:
-            item: Item = json.load(f)
         return item
 
     def delete(self, item_type: str, id: str) -> bool:
         item_path = self._item_path(item_type, id)
-        if os.path.exists(item_path):
+        try:
             os.remove(item_path)
-            return True
-        return False
+        except FileNotFoundError:
+            return False
+        return True

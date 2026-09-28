@@ -2,6 +2,10 @@
 
 import json
 import os
+import stat
+import subprocess
+import sys
+import threading
 
 import pytest
 
@@ -10,6 +14,7 @@ from inventorydb.storage.file_storage import (
     DirectoryBasedInventoryStorage,
     FileBasedInventoryStorage,
 )
+from inventorydb.util.file_util import locked
 
 # ---------------------------------------------------------------------------
 # Helpers / shared fixtures
@@ -282,3 +287,115 @@ class TestFileStoragePathValidation:
         with pytest.raises(ValueError):
             storage.write("todo", {"id": "../../escaped"})
         assert list(tmp_path.rglob("escaped*")) == []
+
+
+# ===========================================================================
+# Concurrency and crash safety
+# ===========================================================================
+
+
+WRITER_PROCESS = """
+import sys
+from inventorydb.storage.file_storage import FileBasedInventoryStorage
+storage = FileBasedInventoryStorage(sys.argv[1])
+for i in range(int(sys.argv[3])):
+    storage.write("todo", {"id": f"{sys.argv[2]}-{i}"})
+"""
+
+
+class TestFileBasedInventoryStorageConcurrency:
+    def test_concurrent_processes_do_not_lose_writes(self, file_storage, base_dir):
+        workers, per_worker = 4, 25
+        procs = [
+            subprocess.Popen([sys.executable, "-c", WRITER_PROCESS, base_dir, str(w), str(per_worker)])
+            for w in range(workers)
+        ]
+        for p in procs:
+            assert p.wait(timeout=60) == 0
+        assert len(file_storage.select("todo")) == workers * per_worker
+
+    def test_concurrent_threads_do_not_lose_writes(self, file_storage):
+        def worker(w: int) -> None:
+            for i in range(25):
+                file_storage.write("todo", {"id": f"{w}-{i}"})
+
+        threads = [threading.Thread(target=worker, args=(w,)) for w in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=60)
+        assert len(file_storage.select("todo")) == 100
+
+    def test_write_waits_for_lock(self, file_storage, base_dir):
+        done = threading.Event()
+
+        def write() -> None:
+            file_storage.write("todo", {"id": "1"})
+            done.set()
+
+        writer = threading.Thread(target=write)
+        with locked(os.path.join(base_dir, ".todo.json.lock")):
+            writer.start()
+            assert not done.wait(timeout=0.3), "write completed while the lock was held"
+        writer.join(timeout=10)
+        assert done.is_set()
+        assert file_storage.read("todo", "1") == {"id": "1"}
+
+    def test_shared_readers_do_not_block_each_other(self, file_storage, base_dir):
+        if sys.platform == "win32":
+            pytest.skip("Windows locks are always exclusive")
+        file_storage.write("todo", {"id": "1"})
+        with locked(os.path.join(base_dir, ".todo.json.lock"), shared=True):
+            result = []
+            reader = threading.Thread(target=lambda: result.append(file_storage.select("todo")))
+            reader.start()
+            reader.join(timeout=5)
+            assert result == [[{"id": "1"}]]
+
+
+class TestFileBasedInventoryStorageFiles:
+    def test_failed_write_keeps_original_file(self, file_storage, base_dir):
+        file_storage.write("todo", {"id": "1"})
+        with pytest.raises(TypeError):
+            file_storage.write("todo", {"id": "2", "bad": object()})  # not JSON-serializable
+        assert file_storage.select("todo") == [{"id": "1"}]
+
+    def test_no_temp_files_left_behind(self, file_storage, base_dir):
+        file_storage.write("todo", {"id": "1"})
+        with pytest.raises(TypeError):
+            file_storage.write("todo", {"id": "2", "bad": object()})
+        assert sorted(os.listdir(base_dir)) == [".todo.json.lock", "todo.json"]
+
+    def test_read_and_delete_of_missing_type_create_no_files(self, file_storage, base_dir):
+        assert file_storage.select("ghost") == []
+        assert file_storage.read("ghost", "1") is None
+        assert file_storage.delete("ghost", "1") is False
+        assert os.listdir(base_dir) == []
+
+    def test_lock_file_is_not_an_item_type(self, file_storage, base_dir):
+        file_storage.write("todo", {"id": "1"})
+        assert file_storage.select(".todo") == []
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")
+    def test_write_keeps_file_permissions(self, file_storage, base_dir):
+        file_storage.write("todo", {"id": "1"})
+        path = os.path.join(base_dir, "todo.json")
+        os.chmod(path, 0o600)
+        file_storage.write("todo", {"id": "2"})
+        assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
+
+
+class TestDirectoryBasedInventoryStorageFiles:
+    def test_failed_write_leaves_no_partial_item(self, dir_storage, base_dir):
+        dir_storage.write("todo", {"id": "1"})
+        with pytest.raises(TypeError):
+            dir_storage.write("todo", {"id": "2", "bad": object()})
+        assert dir_storage.select("todo") == [{"id": "1"}]
+        assert dir_storage.read("todo", "2") is None
+
+    def test_failed_overwrite_keeps_previous_version(self, dir_storage, base_dir):
+        dir_storage.write("todo", {"id": "1", "v": 1})
+        with pytest.raises(TypeError):
+            dir_storage.write("todo", {"id": "1", "bad": object()})
+        assert dir_storage.read("todo", "1") == {"id": "1", "v": 1}
+        assert os.listdir(os.path.join(base_dir, "todo")) == ["1.json"]

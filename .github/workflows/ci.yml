@@ -32,6 +32,10 @@ jobs:
       - name: Mypy (library, strict)
         if: ${{ !cancelled() }}
         run: uv run mypy
+      # Also check platform-specific branches (e.g. msvcrt file locking) as Windows would see them.
+      - name: Mypy (library, strict, Windows)
+        if: ${{ !cancelled() }}
+        run: uv run mypy --platform win32
       # Tests and examples use the public API the way users do, so type checking
       # them catches annotations that are correct internally but awkward to use.
       - name: Mypy (tests and examples)
@@ -55,6 +59,29 @@ jobs:
       # Redis and MongoDB tests use testcontainers; Docker is preinstalled on ubuntu runners.
       - name: Run tests
         run: uv run pytest -q
+
+  test-other-os:
+    name: Test (${{ matrix.os }}, no containers)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync --locked
+      # Covers platform-specific code such as file locking (fcntl vs msvcrt). These
+      # runners can't run the Linux Redis/MongoDB containers, so those tests are excluded.
+      - name: Run tests
+        run: >-
+          uv run pytest -q -k "not redis and not mongodb"
+          --ignore=tests/test_redis_storage.py
+          --ignore=tests/test_async_redis_storage.py
+          --ignore=tests/test_mongodb_storage.py
 
   test-minimum-deps:
     name: Test (minimum dependency versions)

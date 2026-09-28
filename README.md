@@ -116,6 +116,15 @@ All items of one type are stored in `{base_dir}/{item_type}.json`.
 The directory must exist before construction; type files are created on first write.
 Item types must be safe file names (no `/`, `\`, `..`), otherwise `ValueError` is raised.
 
+Safe to use from multiple threads and processes on the same machine. Each write
+holds an exclusive lock on a hidden `.{item_type}.json.lock` file while it reads,
+changes and rewrites the type file, so concurrent writes are never lost. Files
+are replaced atomically, so readers never see a half-written file and a crash
+mid-write cannot corrupt data. Lock files are left in place after use.
+
+Every write rewrites the whole type file, so this adapter suits small datasets.
+Locks are advisory and may not work on network file systems (NFS, SMB).
+
 ### File-Based (one file per item)
 
 ```python
@@ -127,6 +136,10 @@ storage = DirectoryBasedInventoryStorage(base_dir="/var/data/myapp")
 Items are stored at `{base_dir}/{item_type}/{id}.json`.
 Type directories are created automatically on first write.
 Item types and ids must be safe file names (no `/`, `\`, `..`), otherwise `ValueError` is raised.
+
+Item files are replaced atomically, so readers never see a half-written item.
+Writes to different items don't interfere; concurrent writes to the same item
+are last-writer-wins.
 
 ### SQLite
 
@@ -541,8 +554,9 @@ pull request:
 
 | Job | What it does |
 |---|---|
-| Lint, format and type check | Ruff lint, Ruff format check, and both mypy commands above |
+| Lint, format and type check | Ruff lint, Ruff format check, and the mypy commands above (the library is also checked as Windows sees it, with `--platform win32`) |
 | Test | Full test suite on Python 3.12, 3.13 and 3.14 |
+| Test (Windows / macOS, no containers) | Test suite without the Redis and MongoDB tests, covering platform-specific code such as file locking |
 | Test (minimum dependency versions) | Test suite with the lowest versions of `redis`, `pymongo` and `pydantic` allowed by `pyproject.toml` |
 | Build distributions | Builds the sdist and wheel, and checks their metadata and contents |
 
