@@ -14,6 +14,7 @@ __No thrills__ - **just a simple key-value store for serializable Python objects
 - Optional Pydantic model validation with `PydanticInventory`
 - Async support via `AsyncInventory` with async storage adapters (in-memory, Redis)
 - Easy FastAPI integration with dependency injection
+- Fully typed (ships `py.typed`), checked with `mypy --strict`
 
 
 ---
@@ -194,9 +195,13 @@ todos = PydanticInventory(
 )
 
 todos.save(Todo(id="1", title="Buy milk"))
-item: Todo = todos.get("1")   # returns a Todo instance, not a dict
-print(item.done)              # False
+item = todos.get("1")         # returns a Todo instance (or None), not a dict
+if item is not None:
+    print(item.done)          # False
 ```
+
+The model type is inferred from `model_class`, so type checkers know that
+`todos.get()` returns `Todo | None` and `todos.filter()` returns `list[Todo]`.
 
 ---
 
@@ -354,27 +359,32 @@ the right methods is automatically a valid adapter (structural subtyping).
 
 ```python
 # inventorydb/interface.py
-from typing import List, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
+
+Item = dict[str, Any]
 
 @runtime_checkable
 class InventoryStorage(Protocol):
-    def select(self, item_type: str) -> List[dict]: ...
-    def read(self, item_type: str, id: str) -> dict: ...
-    def write(self, item_type: str, item: dict) -> bool: ...
+    def select(self, item_type: str) -> list[Item]: ...
+    def read(self, item_type: str, id: str) -> Item | None: ...
+    def write(self, item_type: str, item: Item) -> bool: ...
     def delete(self, item_type: str, id: str) -> bool: ...
 ```
+
+See the [Behaviour](#behaviour) section for the contract each method must follow.
 
 ### Async — `AsyncInventoryStorage`
 
 ```python
 # inventorydb/asyncio/async_storage.py
-from typing import List, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
+from inventorydb.interface import Item
 
 @runtime_checkable
 class AsyncInventoryStorage(Protocol):
-    async def aselect(self, item_type: str) -> List[dict]: ...
-    async def aread(self, item_type: str, id: str) -> dict: ...
-    async def awrite(self, item_type: str, item: dict) -> bool: ...
+    async def aselect(self, item_type: str) -> list[Item]: ...
+    async def aread(self, item_type: str, id: str) -> Item | None: ...
+    async def awrite(self, item_type: str, item: Item) -> bool: ...
     async def adelete(self, item_type: str, id: str) -> bool: ...
 ```
 
@@ -389,7 +399,7 @@ class MyCustomStorage:
     def select(self, item_type: str) -> list[dict]:
         ...
 
-    def read(self, item_type: str, id: str) -> dict:
+    def read(self, item_type: str, id: str) -> dict | None:
         ...
 
     def write(self, item_type: str, item: dict) -> bool:
@@ -416,8 +426,9 @@ class MyCustomStorage(InventoryStorage):  # explicit, but optional
 
 ### Runtime checks with `isinstance`
 
-Both protocols are `@runtime_checkable`, so you can verify compatibility at
-runtime without instantiating the adapter:
+Both protocols are `@runtime_checkable`, so you can verify at runtime that an
+object has the required methods. This checks method names only, not signatures;
+use a type checker for full verification:
 
 ```python
 from inventorydb.interface import InventoryStorage
@@ -425,3 +436,98 @@ from inventorydb.interface import InventoryStorage
 isinstance(MyCustomStorage(), InventoryStorage)  # True
 isinstance("not a storage", InventoryStorage)    # False
 ```
+
+---
+
+## Type Hints
+
+The package ships a `py.typed` marker, so mypy, Pyright and IDEs use its type
+hints. The library itself is checked with `mypy --strict`.
+
+- Items are typed as `inventorydb.Item`, an alias for `dict[str, Any]`.
+- `Inventory` and `AsyncInventory` accept and return `Item`; `get` returns `Item | None`.
+- `PydanticInventory` is generic over its model class, which is inferred from
+  `model_class` (see [Pydantic Models](#pydantic-models)).
+- Storage adapters accept any structurally compatible client. For example,
+  `RedisInventoryStorage` takes anything with Redis's `hget`/`hset`/`hdel`/`hvals`
+  commands (`redis.Redis`, `redis.asyncio.Redis`, or compatible clients).
+
+---
+
+## Development
+
+Requires [uv](https://docs.astral.sh/uv/). Install the package with all
+development dependencies (pinned in `uv.lock`):
+
+```bash
+uv sync
+```
+
+### Tests
+
+```bash
+uv run pytest
+```
+
+The Redis and MongoDB tests start containers via
+[testcontainers](https://testcontainers.com/), so Docker must be running. Without
+Docker, the shared contract tests skip those backends, but the Redis and MongoDB test
+modules fail; exclude them to run everything else:
+
+```bash
+uv run pytest --ignore=tests/test_redis_storage.py --ignore=tests/test_async_redis_storage.py \
+  --ignore=tests/test_mongodb_storage.py
+```
+
+MongoDB tests use
+`mongo:7.0`, because `mongo:latest` does not start on Linux kernels 6.19+ (as used by
+recent Docker Desktop VMs). Override the image with `INVENTORYDB_TEST_MONGO_IMAGE`.
+
+### Linting
+
+[Ruff](https://docs.astral.sh/ruff/) checks for likely bugs, style issues, import
+order and outdated syntax. The enabled rules are listed under `[tool.ruff.lint]` in
+`pyproject.toml`.
+
+```bash
+uv run ruff check .        # report issues
+uv run ruff check --fix .  # apply safe automatic fixes
+```
+
+### Type checking
+
+[mypy](https://mypy.readthedocs.io/) checks the library in strict mode (configured
+under `[tool.mypy]` in `pyproject.toml`):
+
+```bash
+uv run mypy
+```
+
+Tests and examples are checked too, with rules for unannotated test functions
+relaxed. They use the public API the way users do, so this catches annotations
+that are correct internally but awkward for callers:
+
+```bash
+uv run mypy --allow-untyped-defs --allow-incomplete-defs --allow-untyped-calls tests examples
+```
+
+### Continuous integration
+
+[GitHub Actions](.github/workflows/ci.yml) runs on every push to `main` and every
+pull request:
+
+| Job | What it does |
+|---|---|
+| Lint and type check | Ruff, plus both mypy commands above |
+| Test | Full test suite on Python 3.12, 3.13 and 3.14 |
+| Test (minimum dependency versions) | Test suite with the lowest versions of `redis`, `pymongo` and `pydantic` allowed by `pyproject.toml` |
+| Build distributions | Builds the sdist and wheel, and checks their metadata and contents |
+
+Run the lint, type check and test commands above before pushing to catch
+failures early.
+
+### Releasing
+
+`release.sh` refuses to run with uncommitted changes, runs the tests, builds into
+a clean `dist/`, and publishes to TestPyPI and/or PyPI depending on which of
+`TESTPYPI_PUBLISH_TOKEN` and `PYPI_PUBLISH_TOKEN` are set.
