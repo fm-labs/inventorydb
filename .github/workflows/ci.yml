@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --locked
+      # Redis and MongoDB tests use testcontainers; Docker is preinstalled on ubuntu runners.
+      - name: Run tests
+        run: uv run pytest -q
+
+  test-minimum-deps:
+    name: Test (minimum dependency versions)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Install package with lowest allowed extras
+        run: |
+          uv venv
+          uv pip install --resolution lowest-direct -e ".[all]"
+          uv pip install pytest pytest-asyncio testcontainers
+          uv pip list | grep -iE "^(redis|pymongo|pydantic) "
+      - name: Run tests
+        run: .venv/bin/pytest -q
+
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - name: Build sdist and wheel
+        run: uv build --no-sources
+      - name: Check distribution metadata
+        run: uvx twine check --strict dist/*
+      - name: Check wheel contents
+        run: |
+          unzip -l dist/*.whl | tee wheel-contents.txt
+          grep -q "inventorydb/py.typed" wheel-contents.txt
+          grep -q "licenses/LICENSE" wheel-contents.txt

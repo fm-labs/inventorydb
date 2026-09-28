@@ -20,10 +20,17 @@ __No thrills__ - **just a simple key-value store for serializable Python objects
 
 ## Installation
 
+Requires Python 3.12+. The core package has no dependencies; in-memory, file-based
+and SQLite storage work out of the box. Install extras for the other backends:
+
 ```bash
-pip install inventorydb
+pip install inventorydb              # core only
+pip install "inventorydb[redis]"     # + redis-py, for (Async)RedisInventoryStorage
+pip install "inventorydb[mongodb]"   # + pymongo, for MongoDBInventoryStorage
+pip install "inventorydb[pydantic]"  # + pydantic, for PydanticInventory
+pip install "inventorydb[all]"       # everything
 # or with uv
-uv add inventorydb
+uv add "inventorydb[redis]"
 ```
 
 ---
@@ -33,8 +40,7 @@ uv add inventorydb
 Every item must have an `"id"` field. Use `Inventory` with any storage adapter:
 
 ```python
-from inventorydb.inventory import Inventory
-from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
+from inventorydb import Inventory, InMemoryInventoryStorage
 
 storage = InMemoryInventoryStorage()
 todos = Inventory(item_type="todo", storage=storage)
@@ -50,6 +56,9 @@ todos.delete("1")                # → True
 
 Swapping the backend requires only changing the `storage` argument — the `Inventory`
 API stays identical.
+
+All public classes can be imported from the top-level `inventorydb` package, as above,
+or from their submodules (e.g. `inventorydb.storage.sqlite_storage`) as in the examples below.
 
 ### Behaviour
 

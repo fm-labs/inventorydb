@@ -7,6 +7,11 @@ from testcontainers.community.redis import RedisContainer
 from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage
 
 
+async def close_async_redis(client) -> None:
+    """Close an async client; ``aclose`` only exists in redis-py >= 5.0.1."""
+    await (client.aclose() if hasattr(client, "aclose") else client.close())
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -29,7 +34,7 @@ async def redis_client(redis_container):
     )
     await client.flushdb()
     yield client
-    await client.aclose()
+    await close_async_redis(client)
 
 
 @pytest.fixture()
@@ -193,7 +198,7 @@ class TestAsyncRedisInventoryStorageLayout:
             assert await storage.aread("todo", "1") == {"id": "1", "done": True}
             assert await storage.aselect("todo") == [{"id": "1", "done": True}]
         finally:
-            await client.aclose()
+            await close_async_redis(client)
 
     async def test_shares_data_with_sync_storage(self, redis_container, storage):
         from inventorydb.storage.redis_storage import RedisInventoryStorage

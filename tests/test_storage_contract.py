@@ -27,6 +27,11 @@ from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
 MONGO_IMAGE = os.getenv("INVENTORYDB_TEST_MONGO_IMAGE", "mongo:7.0")
 
 
+async def close_async_redis(client) -> None:
+    """Close an async client; ``aclose`` only exists in redis-py >= 5.0.1."""
+    await (client.aclose() if hasattr(client, "aclose") else client.close())
+
+
 def _docker_available() -> bool:
     if not shutil.which("docker"):
         return False
@@ -243,7 +248,7 @@ async def async_storage(request) -> AsyncInventoryStorage:
     yield storage
     client = getattr(storage, "redis_client", None)
     if client is not None:
-        await client.aclose()
+        await close_async_redis(client)
 
 
 class TestAsyncStorageContract:
