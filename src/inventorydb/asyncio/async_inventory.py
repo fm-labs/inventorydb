@@ -19,7 +19,7 @@ class AsyncInventory:
         self.item_type = item_type
 
     async def filter(self) -> list[Item]:
-        return await self.storage.aselect(self.item_type)
+        return await self.storage.aitems(self.item_type)
 
     async def get(self, id: str) -> Item | None:
         return await self.storage.aread(self.item_type, id)

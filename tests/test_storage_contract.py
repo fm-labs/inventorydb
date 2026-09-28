@@ -258,7 +258,7 @@ class TestAsyncStorageContract:
         assert isinstance(async_storage, AsyncInventoryStorage)
 
     async def test_select_unknown_type_returns_empty_list(self, async_storage):
-        assert await async_storage.aselect("ghost") == []
+        assert await async_storage.aitems("ghost") == []
 
     async def test_read_unknown_returns_none(self, async_storage):
         assert await async_storage.aread("ghost", "1") is None

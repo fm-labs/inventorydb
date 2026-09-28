@@ -68,12 +68,12 @@ class TestAsyncRedisInventoryStorageWrite:
     async def test_write_update_does_not_duplicate(self, storage):
         await storage.awrite("todo", {"id": "1", "title": "x"})
         await storage.awrite("todo", {"id": "1", "title": "y"})
-        assert len(await storage.aselect("todo")) == 1
+        assert len(await storage.aitems("todo")) == 1
 
     async def test_write_multiple_items(self, storage):
         for i in range(3):
             await storage.awrite("todo", {"id": str(i), "val": str(i)})
-        assert len(await storage.aselect("todo")) == 3
+        assert len(await storage.aitems("todo")) == 3
 
 
 # ---------------------------------------------------------------------------
@@ -110,32 +110,32 @@ class TestAsyncRedisInventoryStorageRead:
 
 class TestAsyncRedisInventoryStorageSelect:
     async def test_select_returns_empty_list_for_unknown_type(self, storage):
-        assert await storage.aselect("todo") == []
+        assert await storage.aitems("todo") == []
 
     async def test_select_returns_all_items(self, storage):
         items = [{"id": "1", "title": "a"}, {"id": "2", "title": "b"}]
         for item in items:
             await storage.awrite("todo", item)
-        result = sorted(await storage.aselect("todo"), key=lambda x: x["id"])
+        result = sorted(await storage.aitems("todo"), key=lambda x: x["id"])
         assert result == sorted(items, key=lambda x: x["id"])
 
     async def test_select_isolates_types(self, storage):
         await storage.awrite("todos", {"id": "1", "kind": "todo"})
         await storage.awrite("notes", {"id": "1", "kind": "note"})
-        assert await storage.aselect("todos") == [{"id": "1", "kind": "todo"}]
-        assert await storage.aselect("notes") == [{"id": "1", "kind": "note"}]
+        assert await storage.aitems("todos") == [{"id": "1", "kind": "todo"}]
+        assert await storage.aitems("notes") == [{"id": "1", "kind": "note"}]
 
     async def test_select_reflects_updates(self, storage):
         await storage.awrite("todo", {"id": "1", "title": "Old"})
         await storage.awrite("todo", {"id": "1", "title": "New"})
-        result = await storage.aselect("todo")
+        result = await storage.aitems("todo")
         assert len(result) == 1
         assert result[0]["title"] == "New"
 
     async def test_select_returns_empty_list_after_all_deleted(self, storage):
         await storage.awrite("todo", {"id": "1"})
         await storage.adelete("todo", "1")
-        assert await storage.aselect("todo") == []
+        assert await storage.aitems("todo") == []
 
 
 # ---------------------------------------------------------------------------
@@ -168,15 +168,15 @@ class TestAsyncRedisInventoryStorageDelete:
         await storage.awrite("todo", {"id": "1"})
         await storage.awrite("todo", {"id": "2"})
         await storage.adelete("todo", "1")
-        result = await storage.aselect("todo")
+        result = await storage.aitems("todo")
         assert result == [{"id": "2"}]
 
     async def test_delete_only_removes_target_type(self, storage):
         await storage.awrite("todos", {"id": "1"})
         await storage.awrite("notes", {"id": "1"})
         await storage.adelete("todos", "1")
-        assert await storage.aselect("todos") == []
-        assert await storage.aselect("notes") == [{"id": "1"}]
+        assert await storage.aitems("todos") == []
+        assert await storage.aitems("notes") == [{"id": "1"}]
 
 
 class TestAsyncRedisInventoryStorageLayout:
@@ -184,7 +184,7 @@ class TestAsyncRedisInventoryStorageLayout:
         item = {"id": "1", "done": False, "count": 3, "tags": ["a"], "meta": {"k": None}}
         await storage.awrite("todo", item)
         assert await storage.aread("todo", "1") == item
-        assert await storage.aselect("todo") == [item]
+        assert await storage.aitems("todo") == [item]
 
     async def test_works_with_bytes_client(self, redis_container):
         client = redis.asyncio.Redis(
@@ -196,7 +196,7 @@ class TestAsyncRedisInventoryStorageLayout:
             storage = AsyncRedisInventoryStorage(client)
             await storage.awrite("todo", {"id": "1", "done": True})
             assert await storage.aread("todo", "1") == {"id": "1", "done": True}
-            assert await storage.aselect("todo") == [{"id": "1", "done": True}]
+            assert await storage.aitems("todo") == [{"id": "1", "done": True}]
         finally:
             await close_async_redis(client)
 
@@ -209,4 +209,4 @@ class TestAsyncRedisInventoryStorageLayout:
     async def test_types_sharing_a_prefix_do_not_collide(self, storage):
         await storage.awrite("todo", {"id": "1"})
         await storage.awrite("todo:archive", {"id": "2"})
-        assert await storage.aselect("todo") == [{"id": "1"}]
+        assert await storage.aitems("todo") == [{"id": "1"}]

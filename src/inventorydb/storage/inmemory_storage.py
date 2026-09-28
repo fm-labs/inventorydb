@@ -32,7 +32,7 @@ class InMemoryInventoryStorage(InventoryStorage, AsyncInventoryStorage):
             return True
         return False
 
-    async def aselect(self, item_type: str) -> list[Item]:
+    async def aitems(self, item_type: str) -> list[Item]:
         return self.items(item_type)
 
     async def aread(self, item_type: str, id: str) -> Item | None:

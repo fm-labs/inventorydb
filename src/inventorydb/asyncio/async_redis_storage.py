@@ -18,7 +18,7 @@ class AsyncRedisInventoryStorage(AsyncInventoryStorage):
     def _key(self, item_type: str) -> str:
         return redis_type_key(self.key_prefix, item_type)
 
-    async def aselect(self, item_type: str) -> list[Item]:
+    async def aitems(self, item_type: str) -> list[Item]:
         return [json.loads(value) for value in await self.redis_client.hvals(self._key(item_type))]
 
     async def awrite(self, item_type: str, item: Item) -> bool:
