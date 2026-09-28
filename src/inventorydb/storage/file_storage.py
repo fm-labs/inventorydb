@@ -26,7 +26,7 @@ class FileBasedInventoryStorage(InventoryStorage):
         if not os.path.exists(self.inventory_dir):
             raise ValueError(f"Base directory {self.inventory_dir} does not exist.")
 
-    def select(self, item_type: str) -> list[Item]:
+    def items(self, item_type: str) -> list[Item]:
         file_path = self._file_path(item_type)
         if not os.path.exists(file_path):
             return []
@@ -47,7 +47,7 @@ class FileBasedInventoryStorage(InventoryStorage):
         return True
 
     def read(self, item_type: str, id: str) -> Item | None:
-        items = self.select(item_type)
+        items = self.items(item_type)
         for item in items:
             if item["id"] == id:
                 return item
@@ -96,7 +96,7 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
     def _item_path(self, item_type: str, id: str) -> str:
         return os.path.join(self._type_dir(item_type), f"{_safe_name(id, 'item id')}.json")
 
-    def select(self, item_type: str) -> list[Item]:
+    def items(self, item_type: str) -> list[Item]:
         type_dir = self._type_dir(item_type)
         if not os.path.exists(type_dir):
             return []

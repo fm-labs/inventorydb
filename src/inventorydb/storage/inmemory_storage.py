@@ -14,7 +14,7 @@ class InMemoryInventoryStorage(InventoryStorage, AsyncInventoryStorage):
     def __init__(self) -> None:
         self.data: dict[str, dict[str, Item]] = {}
 
-    def select(self, item_type: str) -> list[Item]:
+    def items(self, item_type: str) -> list[Item]:
         return copy.deepcopy(list(self.data.get(item_type, {}).values()))
 
     def read(self, item_type: str, id: str) -> Item | None:
@@ -33,7 +33,7 @@ class InMemoryInventoryStorage(InventoryStorage, AsyncInventoryStorage):
         return False
 
     async def aselect(self, item_type: str) -> list[Item]:
-        return self.select(item_type)
+        return self.items(item_type)
 
     async def aread(self, item_type: str, id: str) -> Item | None:
         return self.read(item_type, id)

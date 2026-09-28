@@ -72,12 +72,12 @@ class TestSQLiteInventoryStorageWrite:
     def test_write_update_does_not_duplicate(self, storage):
         storage.write("todo", {"id": "1", "title": "x"})
         storage.write("todo", {"id": "1", "title": "y"})
-        assert len(storage.select("todo")) == 1
+        assert len(storage.items("todo")) == 1
 
     def test_write_multiple_items(self, storage):
         for i in range(3):
             storage.write("todo", {"id": str(i), "val": i})
-        assert len(storage.select("todo")) == 3
+        assert len(storage.items("todo")) == 3
 
     def test_write_persists_across_instances(self, db_path):
         SQLiteInventoryStorage(db_path).write("todo", {"id": "1", "title": "Hello"})
@@ -120,32 +120,32 @@ class TestSQLiteInventoryStorageRead:
 
 class TestSQLiteInventoryStorageSelect:
     def test_select_returns_empty_list_for_unknown_type(self, storage):
-        assert storage.select("todo") == []
+        assert storage.items("todo") == []
 
     def test_select_returns_all_items(self, storage):
         items = [{"id": "1", "title": "a"}, {"id": "2", "title": "b"}]
         for item in items:
             storage.write("todo", item)
-        result = sorted(storage.select("todo"), key=lambda x: x["id"])
+        result = sorted(storage.items("todo"), key=lambda x: x["id"])
         assert result == sorted(items, key=lambda x: x["id"])
 
     def test_select_isolates_types(self, storage):
         storage.write("todos", {"id": "1", "kind": "todo"})
         storage.write("notes", {"id": "1", "kind": "note"})
-        assert storage.select("todos") == [{"id": "1", "kind": "todo"}]
-        assert storage.select("notes") == [{"id": "1", "kind": "note"}]
+        assert storage.items("todos") == [{"id": "1", "kind": "todo"}]
+        assert storage.items("notes") == [{"id": "1", "kind": "note"}]
 
     def test_select_reflects_updates(self, storage):
         storage.write("todo", {"id": "1", "title": "Old"})
         storage.write("todo", {"id": "1", "title": "New"})
-        result = storage.select("todo")
+        result = storage.items("todo")
         assert len(result) == 1
         assert result[0]["title"] == "New"
 
     def test_select_returns_empty_list_after_all_deleted(self, storage):
         storage.write("todo", {"id": "1"})
         storage.delete("todo", "1")
-        assert storage.select("todo") == []
+        assert storage.items("todo") == []
 
 
 # ---------------------------------------------------------------------------
@@ -173,15 +173,15 @@ class TestSQLiteInventoryStorageDelete:
         storage.write("todo", {"id": "1"})
         storage.write("todo", {"id": "2"})
         storage.delete("todo", "1")
-        result = storage.select("todo")
+        result = storage.items("todo")
         assert result == [{"id": "2"}]
 
     def test_delete_only_removes_target_type(self, storage):
         storage.write("todos", {"id": "1"})
         storage.write("notes", {"id": "1"})
         storage.delete("todos", "1")
-        assert storage.select("todos") == []
-        assert storage.select("notes") == [{"id": "1"}]
+        assert storage.items("todos") == []
+        assert storage.items("notes") == [{"id": "1"}]
 
     def test_delete_only_removes_target_item(self, storage):
         storage.write("todo", {"id": "1"})

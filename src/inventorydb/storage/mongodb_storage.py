@@ -18,7 +18,7 @@ class MongoDBInventoryStorage(InventoryStorage):
         db = self.mongo_client["inventory"]
         return db[item_type]
 
-    def select(self, item_type: str, query: Mapping[str, Any] | None = None) -> list[Item]:
+    def items(self, item_type: str, query: Mapping[str, Any] | None = None) -> list[Item]:
         """Return all items of a type. ``query`` is a MongoDB-only extension to filter results."""
         collection = self.get_mongo_collection(item_type)
         return list(collection.find(query or {}, {"_id": False}))

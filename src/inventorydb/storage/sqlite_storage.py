@@ -34,7 +34,7 @@ class SQLiteInventoryStorage(InventoryStorage):
         finally:
             conn.close()
 
-    def select(self, item_type: str) -> list[Item]:
+    def items(self, item_type: str) -> list[Item]:
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT data FROM items WHERE item_type = ?",

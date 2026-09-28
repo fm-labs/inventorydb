@@ -28,12 +28,12 @@ class TestInMemoryInventoryStorageInit:
 
 class TestInMemoryInventoryStorageSelect:
     def test_select_returns_empty_list_for_unknown_type(self, storage):
-        assert storage.select("todo") == []
+        assert storage.items("todo") == []
 
     def test_select_returns_all_items(self, storage):
         storage.write("todo", {"id": "1", "title": "a"})
         storage.write("todo", {"id": "2", "title": "b"})
-        result = storage.select("todo")
+        result = storage.items("todo")
         assert sorted(result, key=lambda x: x["id"]) == [
             {"id": "1", "title": "a"},
             {"id": "2", "title": "b"},
@@ -42,13 +42,13 @@ class TestInMemoryInventoryStorageSelect:
     def test_select_returns_empty_list_after_all_items_deleted(self, storage):
         storage.write("todo", {"id": "1"})
         storage.delete("todo", "1")
-        assert storage.select("todo") == []
+        assert storage.items("todo") == []
 
     def test_select_isolates_types(self, storage):
         storage.write("todos", {"id": "1", "kind": "todo"})
         storage.write("notes", {"id": "1", "kind": "note"})
-        assert storage.select("todos") == [{"id": "1", "kind": "todo"}]
-        assert storage.select("notes") == [{"id": "1", "kind": "note"}]
+        assert storage.items("todos") == [{"id": "1", "kind": "todo"}]
+        assert storage.items("notes") == [{"id": "1", "kind": "note"}]
 
 
 # ---------------------------------------------------------------------------
@@ -96,12 +96,12 @@ class TestInMemoryInventoryStorageWrite:
     def test_write_update_does_not_duplicate(self, storage):
         storage.write("todo", {"id": "1"})
         storage.write("todo", {"id": "1"})
-        assert len(storage.select("todo")) == 1
+        assert len(storage.items("todo")) == 1
 
     def test_write_multiple_items(self, storage):
         for i in range(3):
             storage.write("todo", {"id": str(i)})
-        assert len(storage.select("todo")) == 3
+        assert len(storage.items("todo")) == 3
 
     def test_write_auto_creates_type_namespace(self, storage):
         storage.write("new_type", {"id": "1"})
@@ -135,4 +135,4 @@ class TestInMemoryInventoryStorageDelete:
         storage.write("todo", {"id": "1"})
         storage.write("todo", {"id": "2"})
         storage.delete("todo", "1")
-        assert storage.select("todo") == [{"id": "2"}]
+        assert storage.items("todo") == [{"id": "2"}]

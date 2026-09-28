@@ -123,23 +123,23 @@ class TestStorageContract:
     # select
 
     def test_select_unknown_type_returns_empty_list(self, storage):
-        assert storage.select("ghost") == []
+        assert storage.items("ghost") == []
 
     def test_select_returns_all_items_of_type(self, storage):
         storage.write("todo", {"id": "1", "title": "a"})
         storage.write("todo", {"id": "2", "title": "b"})
-        items = sorted(storage.select("todo"), key=lambda i: i["id"])
+        items = sorted(storage.items("todo"), key=lambda i: i["id"])
         assert items == [{"id": "1", "title": "a"}, {"id": "2", "title": "b"}]
 
     def test_select_isolates_types(self, storage):
         storage.write("todo", {"id": "1", "title": "a"})
         storage.write("note", {"id": "1", "title": "b"})
-        assert storage.select("todo") == [{"id": "1", "title": "a"}]
+        assert storage.items("todo") == [{"id": "1", "title": "a"}]
 
     def test_select_after_all_deleted_returns_empty_list(self, storage):
         storage.write("todo", {"id": "1"})
         storage.delete("todo", "1")
-        assert storage.select("todo") == []
+        assert storage.items("todo") == []
 
     # read
 
@@ -164,7 +164,7 @@ class TestStorageContract:
         storage.write("todo", {"id": "1", "title": "a", "note": "remove me"})
         storage.write("todo", {"id": "1", "title": "b"})
         assert storage.read("todo", "1") == {"id": "1", "title": "b"}
-        assert len(storage.select("todo")) == 1
+        assert len(storage.items("todo")) == 1
 
     def test_write_does_not_mutate_input(self, storage):
         item = {"id": "1", "title": "a"}
@@ -196,7 +196,7 @@ class TestStorageContract:
         storage.write("todo", {"id": "2"})
         storage.write("note", {"id": "1"})
         storage.delete("todo", "1")
-        assert storage.select("todo") == [{"id": "2"}]
+        assert storage.items("todo") == [{"id": "2"}]
         assert storage.read("note", "1") == {"id": "1"}
 
     # isolation
@@ -210,7 +210,7 @@ class TestStorageContract:
     def test_mutating_read_result_does_not_change_stored_item(self, storage):
         storage.write("todo", {"id": "1", "title": "a"})
         storage.read("todo", "1")["title"] = "changed"
-        storage.select("todo")[0]["title"] = "changed"
+        storage.items("todo")[0]["title"] = "changed"
         assert storage.read("todo", "1") == {"id": "1", "title": "a"}
 
 

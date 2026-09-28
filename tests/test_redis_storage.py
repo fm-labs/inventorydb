@@ -50,7 +50,7 @@ class TestRedisInventoryStorageWrite:
         item = {"id": "1", "done": False, "count": 3, "ratio": 0.5, "tags": ["a"], "meta": {"k": None}}
         storage.write("todo", item)
         assert storage.read("todo", "1") == item
-        assert storage.select("todo") == [item]
+        assert storage.items("todo") == [item]
 
     def test_write_updates_existing_item(self, storage):
         storage.write("todo", {"id": "1", "title": "Old"})
@@ -60,12 +60,12 @@ class TestRedisInventoryStorageWrite:
     def test_write_update_does_not_duplicate(self, storage):
         storage.write("todo", {"id": "1", "title": "x"})
         storage.write("todo", {"id": "1", "title": "y"})
-        assert len(storage.select("todo")) == 1
+        assert len(storage.items("todo")) == 1
 
     def test_write_multiple_items(self, storage):
         for i in range(3):
             storage.write("todo", {"id": str(i), "val": str(i)})
-        assert len(storage.select("todo")) == 3
+        assert len(storage.items("todo")) == 3
 
 
 # ---------------------------------------------------------------------------
@@ -102,32 +102,32 @@ class TestRedisInventoryStorageRead:
 
 class TestRedisInventoryStorageSelect:
     def test_select_returns_empty_list_for_unknown_type(self, storage):
-        assert storage.select("todo") == []
+        assert storage.items("todo") == []
 
     def test_select_returns_all_items(self, storage):
         items = [{"id": "1", "title": "a"}, {"id": "2", "title": "b"}]
         for item in items:
             storage.write("todo", item)
-        result = sorted(storage.select("todo"), key=lambda x: x["id"])
+        result = sorted(storage.items("todo"), key=lambda x: x["id"])
         assert result == sorted(items, key=lambda x: x["id"])
 
     def test_select_isolates_types(self, storage):
         storage.write("todos", {"id": "1", "kind": "todo"})
         storage.write("notes", {"id": "1", "kind": "note"})
-        assert storage.select("todos") == [{"id": "1", "kind": "todo"}]
-        assert storage.select("notes") == [{"id": "1", "kind": "note"}]
+        assert storage.items("todos") == [{"id": "1", "kind": "todo"}]
+        assert storage.items("notes") == [{"id": "1", "kind": "note"}]
 
     def test_select_reflects_updates(self, storage):
         storage.write("todo", {"id": "1", "title": "Old"})
         storage.write("todo", {"id": "1", "title": "New"})
-        result = storage.select("todo")
+        result = storage.items("todo")
         assert len(result) == 1
         assert result[0]["title"] == "New"
 
     def test_select_returns_empty_list_after_all_deleted(self, storage):
         storage.write("todo", {"id": "1"})
         storage.delete("todo", "1")
-        assert storage.select("todo") == []
+        assert storage.items("todo") == []
 
 
 # ---------------------------------------------------------------------------
@@ -160,15 +160,15 @@ class TestRedisInventoryStorageDelete:
         storage.write("todo", {"id": "1"})
         storage.write("todo", {"id": "2"})
         storage.delete("todo", "1")
-        result = storage.select("todo")
+        result = storage.items("todo")
         assert result == [{"id": "2"}]
 
     def test_delete_only_removes_target_type(self, storage):
         storage.write("todos", {"id": "1"})
         storage.write("notes", {"id": "1"})
         storage.delete("todos", "1")
-        assert storage.select("todos") == []
-        assert storage.select("notes") == [{"id": "1"}]
+        assert storage.items("todos") == []
+        assert storage.items("notes") == [{"id": "1"}]
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +183,7 @@ class TestRedisInventoryStorageLayout:
         item = {"id": "1", "done": True}
         storage.write("todo", item)
         assert storage.read("todo", "1") == item
-        assert storage.select("todo") == [item]
+        assert storage.items("todo") == [item]
         assert storage.delete("todo", "1") is True
 
     def test_bytes_and_str_clients_share_data(self, redis_container, storage):
@@ -195,8 +195,8 @@ class TestRedisInventoryStorageLayout:
         storage.write("todo", {"id": "1"})
         storage.write("todo:archive", {"id": "2"})
         storage.write("todo", {"id": "archive:2"})
-        assert sorted(i["id"] for i in storage.select("todo")) == ["1", "archive:2"]
-        assert storage.select("todo:archive") == [{"id": "2"}]
+        assert sorted(i["id"] for i in storage.items("todo")) == ["1", "archive:2"]
+        assert storage.items("todo:archive") == [{"id": "2"}]
 
     def test_custom_key_prefix(self, redis_client):
         storage = RedisInventoryStorage(redis_client, key_prefix="myapp:")
@@ -209,4 +209,4 @@ class TestRedisInventoryStorageLayout:
         b = RedisInventoryStorage(redis_client, key_prefix="b:")
         a.write("todo", {"id": "1"})
         assert b.read("todo", "1") is None
-        assert b.select("todo") == []
+        assert b.items("todo") == []

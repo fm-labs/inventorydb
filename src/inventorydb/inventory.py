@@ -31,7 +31,7 @@ class Inventory:
         self.item_type = item_type
 
     def filter(self) -> list[Item]:
-        return self.storage.select(self.item_type)
+        return self.storage.items(self.item_type)
 
     def get(self, id: str) -> Item | None:
         return self.storage.read(self.item_type, id)

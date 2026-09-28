@@ -62,14 +62,14 @@ class TestFileBasedInventoryStorageSelect:
     def test_select_returns_all_items(self, file_storage, base_dir):
         items = [{"id": "1", "name": "a"}, {"id": "2", "name": "b"}]
         seed_file(base_dir, "todo", items)
-        assert file_storage.select("todo") == items
+        assert file_storage.items("todo") == items
 
     def test_select_returns_empty_list_when_file_missing(self, file_storage):
-        assert file_storage.select("nonexistent_type") == []
+        assert file_storage.items("nonexistent_type") == []
 
     def test_select_returns_empty_list_for_empty_file(self, file_storage, base_dir):
         seed_file(base_dir, "todo", [])
-        assert file_storage.select("todo") == []
+        assert file_storage.items("todo") == []
 
 
 class TestFileBasedInventoryStorageWrite:
@@ -77,7 +77,7 @@ class TestFileBasedInventoryStorageWrite:
         seed_file(base_dir, "todo", [])
         item = {"id": "1", "title": "Buy milk"}
         file_storage.write("todo", item)
-        assert file_storage.select("todo") == [item]
+        assert file_storage.items("todo") == [item]
 
     def test_write_creates_file_for_new_type(self, file_storage, base_dir):
         item = {"id": "1", "title": "Buy milk"}
@@ -92,20 +92,20 @@ class TestFileBasedInventoryStorageWrite:
     def test_write_updates_existing_item(self, file_storage, base_dir):
         seed_file(base_dir, "todo", [{"id": "1", "title": "Old"}])
         file_storage.write("todo", {"id": "1", "title": "New"})
-        result = file_storage.select("todo")
+        result = file_storage.items("todo")
         assert len(result) == 1
         assert result[0]["title"] == "New"
 
     def test_write_update_does_not_duplicate(self, file_storage, base_dir):
         seed_file(base_dir, "todo", [{"id": "1", "title": "x"}])
         file_storage.write("todo", {"id": "1", "title": "y"})
-        assert len(file_storage.select("todo")) == 1
+        assert len(file_storage.items("todo")) == 1
 
     def test_multiple_items_persist(self, file_storage, base_dir):
         seed_file(base_dir, "todo", [])
         for i in range(3):
             file_storage.write("todo", {"id": str(i), "value": i})
-        assert len(file_storage.select("todo")) == 3
+        assert len(file_storage.items("todo")) == 3
 
 
 class TestFileBasedInventoryStorageRead:
@@ -131,7 +131,7 @@ class TestFileBasedInventoryStorageDelete:
     def test_delete_removes_item(self, file_storage, base_dir):
         seed_file(base_dir, "todo", [{"id": "1"}, {"id": "2"}])
         file_storage.delete("todo", "1")
-        remaining = file_storage.select("todo")
+        remaining = file_storage.items("todo")
         assert len(remaining) == 1
         assert remaining[0]["id"] == "2"
 
@@ -144,7 +144,7 @@ class TestFileBasedInventoryStorageDelete:
         result = file_storage.delete("todo", "nonexistent")
         assert result is False
         # Original item is untouched
-        assert len(file_storage.select("todo")) == 1
+        assert len(file_storage.items("todo")) == 1
 
     def test_delete_returns_false_when_file_missing(self, file_storage):
         assert file_storage.delete("ghost_type", "1") is False
@@ -167,24 +167,24 @@ class TestDirectoryBasedInventoryStorageInit:
 
 class TestDirectoryBasedInventoryStorageSelect:
     def test_select_returns_empty_list_when_type_dir_missing(self, dir_storage):
-        assert dir_storage.select("ghost") == []
+        assert dir_storage.items("ghost") == []
 
     def test_select_returns_written_items(self, dir_storage):
         items = [{"id": "a"}, {"id": "b"}, {"id": "c"}]
         for item in items:
             dir_storage.write("todo", item)
-        result = dir_storage.select("todo")
+        result = dir_storage.items("todo")
         assert sorted(result, key=lambda x: x["id"]) == sorted(items, key=lambda x: x["id"])
 
     def test_select_returns_empty_list_for_empty_type_dir(self, dir_storage, base_dir):
         os.makedirs(os.path.join(base_dir, "empty_type"))
-        assert dir_storage.select("empty_type") == []
+        assert dir_storage.items("empty_type") == []
 
     def test_multiple_types_are_isolated(self, dir_storage):
         dir_storage.write("todos", {"id": "1", "kind": "todo"})
         dir_storage.write("notes", {"id": "1", "kind": "note"})
-        todos = dir_storage.select("todos")
-        notes = dir_storage.select("notes")
+        todos = dir_storage.items("todos")
+        notes = dir_storage.items("notes")
         assert todos == [{"id": "1", "kind": "todo"}]
         assert notes == [{"id": "1", "kind": "note"}]
 
@@ -217,7 +217,7 @@ class TestDirectoryBasedInventoryStorageWrite:
     def test_update_via_write_does_not_duplicate(self, dir_storage):
         dir_storage.write("todo", {"id": "1"})
         dir_storage.write("todo", {"id": "1"})
-        assert len(dir_storage.select("todo")) == 1
+        assert len(dir_storage.items("todo")) == 1
 
 
 class TestDirectoryBasedInventoryStorageRead:
@@ -248,7 +248,7 @@ class TestDirectoryBasedInventoryStorageDelete:
         dir_storage.write("todo", {"id": "1"})
         dir_storage.write("todo", {"id": "2"})
         dir_storage.delete("todo", "1")
-        remaining = dir_storage.select("todo")
+        remaining = dir_storage.items("todo")
         assert remaining == [{"id": "2"}]
 
 
@@ -312,7 +312,7 @@ class TestFileBasedInventoryStorageConcurrency:
         ]
         for p in procs:
             assert p.wait(timeout=60) == 0
-        assert len(file_storage.select("todo")) == workers * per_worker
+        assert len(file_storage.items("todo")) == workers * per_worker
 
     def test_concurrent_threads_do_not_lose_writes(self, file_storage):
         def worker(w: int) -> None:
@@ -324,7 +324,7 @@ class TestFileBasedInventoryStorageConcurrency:
             t.start()
         for t in threads:
             t.join(timeout=60)
-        assert len(file_storage.select("todo")) == 100
+        assert len(file_storage.items("todo")) == 100
 
     def test_write_waits_for_lock(self, file_storage, base_dir):
         done = threading.Event()
@@ -347,7 +347,7 @@ class TestFileBasedInventoryStorageConcurrency:
         file_storage.write("todo", {"id": "1"})
         with locked(os.path.join(base_dir, ".todo.json.lock"), shared=True):
             result = []
-            reader = threading.Thread(target=lambda: result.append(file_storage.select("todo")))
+            reader = threading.Thread(target=lambda: result.append(file_storage.items("todo")))
             reader.start()
             reader.join(timeout=5)
             assert result == [[{"id": "1"}]]
@@ -358,7 +358,7 @@ class TestFileBasedInventoryStorageFiles:
         file_storage.write("todo", {"id": "1"})
         with pytest.raises(TypeError):
             file_storage.write("todo", {"id": "2", "bad": object()})  # not JSON-serializable
-        assert file_storage.select("todo") == [{"id": "1"}]
+        assert file_storage.items("todo") == [{"id": "1"}]
 
     def test_no_temp_files_left_behind(self, file_storage, base_dir):
         file_storage.write("todo", {"id": "1"})
@@ -367,14 +367,14 @@ class TestFileBasedInventoryStorageFiles:
         assert sorted(os.listdir(base_dir)) == [".todo.json.lock", "todo.json"]
 
     def test_read_and_delete_of_missing_type_create_no_files(self, file_storage, base_dir):
-        assert file_storage.select("ghost") == []
+        assert file_storage.items("ghost") == []
         assert file_storage.read("ghost", "1") is None
         assert file_storage.delete("ghost", "1") is False
         assert os.listdir(base_dir) == []
 
     def test_lock_file_is_not_an_item_type(self, file_storage, base_dir):
         file_storage.write("todo", {"id": "1"})
-        assert file_storage.select(".todo") == []
+        assert file_storage.items(".todo") == []
 
     @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")
     def test_write_keeps_file_permissions(self, file_storage, base_dir):
@@ -390,7 +390,7 @@ class TestDirectoryBasedInventoryStorageFiles:
         dir_storage.write("todo", {"id": "1"})
         with pytest.raises(TypeError):
             dir_storage.write("todo", {"id": "2", "bad": object()})
-        assert dir_storage.select("todo") == [{"id": "1"}]
+        assert dir_storage.items("todo") == [{"id": "1"}]
         assert dir_storage.read("todo", "2") is None
 
     def test_failed_overwrite_keeps_previous_version(self, dir_storage, base_dir):

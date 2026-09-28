@@ -43,7 +43,7 @@ class RedisInventoryStorage(InventoryStorage):
     def _key(self, item_type: str) -> str:
         return redis_type_key(self.key_prefix, item_type)
 
-    def select(self, item_type: str) -> list[Item]:
+    def items(self, item_type: str) -> list[Item]:
         return [json.loads(value) for value in self.redis_client.hvals(self._key(item_type))]
 
     def write(self, item_type: str, item: Item) -> bool:
