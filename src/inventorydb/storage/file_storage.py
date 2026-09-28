@@ -1,8 +1,21 @@
 import json
 import os
-from typing import List
+from typing import List, Optional
 
 from inventorydb.interface import InventoryStorage
+
+
+def _safe_name(name: str, kind: str) -> str:
+    """Validate that an item type or id can be used as a single path component."""
+    if (
+        not isinstance(name, str)
+        or name in ("", ".", "..")
+        or "/" in name
+        or "\\" in name
+        or "\x00" in name
+    ):
+        raise ValueError(f"Invalid {kind} for file storage: {name!r}")
+    return name
 
 
 class FileBasedInventoryStorage(InventoryStorage):
@@ -27,27 +40,33 @@ class FileBasedInventoryStorage(InventoryStorage):
         self._write_file(item_type, items)
         return True
 
-    def read(self, item_type: str, id: str) -> dict:
+    def read(self, item_type: str, id: str) -> Optional[dict]:
         items = self.select(item_type)
         for item in items:
             if item["id"] == id:
                 return item
-        return {}
+        return None
 
     def delete(self, item_type: str, id: str) -> bool:
         items = self.select(item_type)
-        items = [item for item in items if item["id"] != id]
-        self._write_file(item_type, items)
+        remaining = [item for item in items if item["id"] != id]
+        if len(remaining) == len(items):
+            return False
+        self._write_file(item_type, remaining)
         return True
 
-    def _read_file(self, file_name: str) -> dict | list:
-        file_path = f"{self.inventory_dir}/{file_name}.json"
+    def _file_path(self, item_type: str) -> str:
+        return os.path.join(self.inventory_dir, f"{_safe_name(item_type, 'item type')}.json")
+
+    def _read_file(self, item_type: str) -> list:
+        file_path = self._file_path(item_type)
+        if not os.path.exists(file_path):
+            return []
         with open(file_path, 'r') as f:
             return json.load(f)
 
-    def _write_file(self, file_name: str, data: dict | list) -> None:
-        file_path = f"{self.inventory_dir}/{file_name}.json"
-        with open(file_path, 'w') as f:
+    def _write_file(self, item_type: str, data: list) -> None:
+        with open(self._file_path(item_type), 'w') as f:
             json.dump(data, f, indent=4)
 
 
@@ -59,38 +78,42 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
         if not os.path.exists(self.inventory_dir):
             raise ValueError(f"Base directory {self.inventory_dir} does not exist.")
 
+    def _type_dir(self, item_type: str) -> str:
+        return os.path.join(self.inventory_dir, _safe_name(item_type, "item type"))
+
+    def _item_path(self, item_type: str, id: str) -> str:
+        return os.path.join(self._type_dir(item_type), f"{_safe_name(id, 'item id')}.json")
+
     def select(self, item_type: str) -> List[dict]:
-        type_dir = f"{self.inventory_dir}/{item_type}"
+        type_dir = self._type_dir(item_type)
         if not os.path.exists(type_dir):
             return []
         items = []
         for filename in os.listdir(type_dir):
             if filename.endswith(".json"):
-                with open(f"{type_dir}/{filename}", 'r') as f:
+                with open(os.path.join(type_dir, filename), 'r') as f:
                     items.append(json.load(f))
         return items
 
     def write(self, item_type: str, item: dict) -> bool:
-        type_dir = f"{self.inventory_dir}/{item_type}"
-        os.makedirs(type_dir, exist_ok=True)
         item_id = item.get("id")
         if not item_id:
             raise ValueError("Item must have an 'id' field.")
-        with open(f"{type_dir}/{item_id}.json", 'w') as f:
+        item_path = self._item_path(item_type, item_id)
+        os.makedirs(self._type_dir(item_type), exist_ok=True)
+        with open(item_path, 'w') as f:
             json.dump(item, f, indent=4)
         return True
 
-    def read(self, item_type: str, id: str) -> dict:
-        type_dir = f"{self.inventory_dir}/{item_type}"
-        item_path = f"{type_dir}/{id}.json"
+    def read(self, item_type: str, id: str) -> Optional[dict]:
+        item_path = self._item_path(item_type, id)
         if not os.path.exists(item_path):
-            return {}
+            return None
         with open(item_path, 'r') as f:
             return json.load(f)
 
     def delete(self, item_type: str, id: str) -> bool:
-        type_dir = f"{self.inventory_dir}/{item_type}"
-        item_path = f"{type_dir}/{id}.json"
+        item_path = self._item_path(item_type, id)
         if os.path.exists(item_path):
             os.remove(item_path)
             return True

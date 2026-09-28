@@ -17,7 +17,7 @@ print("Fetched To-do:", fetched_todo)
 updated_todo = todos_inventory.patch("1", {"status": "completed"})
 print("Updated To-do:", updated_todo)
 
-# Delete the to-do item (not implemented yet)
-# delete_result = todos.delete("1")
-# print("Deleted To-do:", delete_result)
+# Delete the to-do item
+delete_result = todos_inventory.delete("1")
+print("Deleted To-do:", delete_result)
 

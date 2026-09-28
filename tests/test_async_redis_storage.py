@@ -2,7 +2,7 @@
 
 import redis.asyncio
 import pytest
-from testcontainers.redis import RedisContainer
+from testcontainers.community.redis import RedisContainer
 
 from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage
 
@@ -82,11 +82,11 @@ class TestAsyncRedisInventoryStorageRead:
         await storage.awrite("todo", item)
         assert await storage.aread("todo", "42") == item
 
-    async def test_read_returns_empty_dict_for_unknown_id(self, storage):
-        assert await storage.aread("todo", "nonexistent") == {}
+    async def test_read_returns_none_for_unknown_id(self, storage):
+        assert await storage.aread("todo", "nonexistent") is None
 
-    async def test_read_returns_empty_dict_for_unknown_type(self, storage):
-        assert await storage.aread("ghost_type", "1") == {}
+    async def test_read_returns_none_for_unknown_type(self, storage):
+        assert await storage.aread("ghost_type", "1") is None
 
     async def test_read_returns_correct_item_among_many(self, storage):
         for i in range(5):
@@ -95,7 +95,7 @@ class TestAsyncRedisInventoryStorageRead:
 
     async def test_read_does_not_cross_types(self, storage):
         await storage.awrite("todos", {"id": "1", "kind": "todo"})
-        assert await storage.aread("notes", "1") == {}
+        assert await storage.aread("notes", "1") is None
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +157,7 @@ class TestAsyncRedisInventoryStorageDelete:
     async def test_delete_item_no_longer_readable(self, storage):
         await storage.awrite("todo", {"id": "1"})
         await storage.adelete("todo", "1")
-        assert await storage.aread("todo", "1") == {}
+        assert await storage.aread("todo", "1") is None
 
     async def test_delete_item_excluded_from_select(self, storage):
         await storage.awrite("todo", {"id": "1"})

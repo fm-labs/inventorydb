@@ -1,6 +1,7 @@
 import json
 import sqlite3
-from typing import List
+from contextlib import contextmanager
+from typing import Iterator, List, Optional
 
 from inventorydb.interface import InventoryStorage
 
@@ -19,14 +20,19 @@ class SQLiteInventoryStorage(InventoryStorage):
 
     def __init__(self, db_path: str):
         self.db_path = db_path
-        print(f"Initializing SQLiteInventoryStorage with db_path: {db_path}")
         with self._connect() as conn:
             conn.execute(CREATE_TABLE_SQL)
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        """Open a connection, commit on success (rollback on error), and always close it."""
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     def select(self, item_type: str) -> List[dict]:
         with self._connect() as conn:
@@ -36,13 +42,13 @@ class SQLiteInventoryStorage(InventoryStorage):
             ).fetchall()
         return [json.loads(row["data"]) for row in rows]
 
-    def read(self, item_type: str, id: str) -> dict:
+    def read(self, item_type: str, id: str) -> Optional[dict]:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT data FROM items WHERE item_type = ? AND id = ?",
                 (item_type, id),
             ).fetchone()
-        return json.loads(row["data"]) if row else {}
+        return json.loads(row["data"]) if row else None
 
     def write(self, item_type: str, item: dict) -> bool:
         with self._connect() as conn:

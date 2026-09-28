@@ -51,6 +51,27 @@ todos.delete("1")                # → True
 Swapping the backend requires only changing the `storage` argument — the `Inventory`
 API stays identical.
 
+### Behaviour
+
+All adapters follow the same contract (verified by a shared test suite):
+
+- `get` returns `None` for a missing item; `filter` returns `[]` for an empty type.
+- `save` inserts a new item or **replaces** an existing one entirely (it does not merge fields).
+- `patch` merges the given fields into an existing item. It cannot change the item's `id`.
+- `delete` returns `True` if the item was removed, `False` if it did not exist.
+- Items you get back are copies; mutating them does not change stored data.
+
+Errors are raised, not returned:
+
+| Situation | Exception |
+|---|---|
+| `save` an item without an `id` | `ValueError` |
+| `patch` a missing item | `inventorydb.errors.ItemNotFoundError` (a `LookupError`) |
+| The storage backend reports a failed write | `inventorydb.errors.InventoryError` |
+
+> **Redis note:** Redis hashes store flat strings only, so non-string values
+> (numbers, booleans, lists, nested dicts) are not preserved by the Redis adapters.
+
 ---
 
 ## Storage Adapters
@@ -85,7 +106,8 @@ storage = FileBasedInventoryStorage(base_dir="/var/data/myapp")
 ```
 
 All items of one type are stored in `{base_dir}/{item_type}.json`.
-The directory must exist before construction.
+The directory must exist before construction; type files are created on first write.
+Item types must be safe file names (no `/`, `\`, `..`), otherwise `ValueError` is raised.
 
 ### File-Based (one file per item)
 
@@ -97,6 +119,7 @@ storage = DirectoryBasedInventoryStorage(base_dir="/var/data/myapp")
 
 Items are stored at `{base_dir}/{item_type}/{id}.json`.
 Type directories are created automatically on first write.
+Item types and ids must be safe file names (no `/`, `\`, `..`), otherwise `ValueError` is raised.
 
 ### SQLite
 

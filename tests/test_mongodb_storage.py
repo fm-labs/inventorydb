@@ -1,10 +1,15 @@
 """Tests for MongoDBInventoryStorage using a real MongoDB via testcontainers."""
 
+import os
+
 import pytest
-from testcontainers.mongodb import MongoDbContainer
+from testcontainers.community.mongodb import MongoDbContainer
 
 from inventorydb.storage.mongodb_storage import MongoDBInventoryStorage
 
+# mongo:latest (8.x) refuses to start on Linux kernels >= 6.19 (SERVER-121912),
+# which recent Docker Desktop VMs ship. Pin a known-good image by default.
+MONGO_IMAGE = os.getenv("INVENTORYDB_TEST_MONGO_IMAGE", "mongo:7.0")
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -14,7 +19,7 @@ from inventorydb.storage.mongodb_storage import MongoDBInventoryStorage
 @pytest.fixture(scope="session")
 def mongo_container():
     """Start a single MongoDB container for the entire test session."""
-    with MongoDbContainer() as container:
+    with MongoDbContainer(MONGO_IMAGE) as container:
         yield container
 
 

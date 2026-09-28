@@ -97,12 +97,12 @@ class TestSQLiteInventoryStorageRead:
         storage.write("todo", item)
         assert storage.read("todo", "42") == item
 
-    def test_read_returns_empty_dict_for_unknown_id(self, storage):
+    def test_read_returns_none_for_unknown_id(self, storage):
         storage.write("todo", {"id": "1"})
-        assert storage.read("todo", "nonexistent") == {}
+        assert storage.read("todo", "nonexistent") is None
 
-    def test_read_returns_empty_dict_for_unknown_type(self, storage):
-        assert storage.read("ghost_type", "1") == {}
+    def test_read_returns_none_for_unknown_type(self, storage):
+        assert storage.read("ghost_type", "1") is None
 
     def test_read_returns_correct_item_among_many(self, storage):
         for i in range(5):
@@ -111,7 +111,7 @@ class TestSQLiteInventoryStorageRead:
 
     def test_read_does_not_cross_types(self, storage):
         storage.write("todos", {"id": "1", "kind": "todo"})
-        assert storage.read("notes", "1") == {}
+        assert storage.read("notes", "1") is None
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +168,7 @@ class TestSQLiteInventoryStorageDelete:
     def test_delete_item_no_longer_readable(self, storage):
         storage.write("todo", {"id": "1"})
         storage.delete("todo", "1")
-        assert storage.read("todo", "1") == {}
+        assert storage.read("todo", "1") is None
 
     def test_delete_item_excluded_from_select(self, storage):
         storage.write("todo", {"id": "1"})

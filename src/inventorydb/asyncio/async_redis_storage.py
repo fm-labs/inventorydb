@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from inventorydb.asyncio.async_storage import AsyncInventoryStorage
 
@@ -19,13 +19,17 @@ class AsyncRedisInventoryStorage(AsyncInventoryStorage):
 
     async def awrite(self, item_type: str, item: dict) -> bool:
         key = f"{item_type}:{item['id']}"
-        await self.redis_client.hset(key, mapping=item)
+        # Delete first so fields missing from the new item don't survive (replace, not merge).
+        async with self.redis_client.pipeline(transaction=True) as pipe:
+            pipe.delete(key)
+            pipe.hset(key, mapping=item)
+            await pipe.execute()
         return True
 
-    async def aread(self, item_type: str, id: str) -> dict:
+    async def aread(self, item_type: str, id: str) -> Optional[dict]:
         key = f"{item_type}:{id}"
         item = await self.redis_client.hgetall(key)
-        return item if item else {}
+        return item if item else None
 
     async def adelete(self, item_type: str, id: str) -> bool:
         key = f"{item_type}:{id}"

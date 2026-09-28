@@ -1,25 +1,30 @@
-from typing import List
+import copy
+from typing import List, Optional
 
 from inventorydb.asyncio.async_storage import AsyncInventoryStorage
 from inventorydb.interface import InventoryStorage
 
 
 class InMemoryInventoryStorage(InventoryStorage, AsyncInventoryStorage):
-    """In-memory storage implementation for inventory items."""
+    """In-memory storage implementation for inventory items.
+
+    Items are deep-copied on the way in and out, so callers never share
+    mutable state with the store.
+    """
 
     def __init__(self):
         self.data = {}
 
     def select(self, item_type: str) -> List[dict]:
-        return list(self.data.get(item_type, {}).values())
+        return copy.deepcopy(list(self.data.get(item_type, {}).values()))
 
-    def read(self, item_type: str, id: str) -> dict:
-        return self.data.get(item_type, {}).get(id)
+    def read(self, item_type: str, id: str) -> Optional[dict]:
+        return copy.deepcopy(self.data.get(item_type, {}).get(id))
 
     def write(self, item_type: str, item: dict) -> bool:
         if item_type not in self.data:
             self.data[item_type] = {}
-        self.data[item_type][item['id']] = item
+        self.data[item_type][item['id']] = copy.deepcopy(item)
         return True
 
     def delete(self, item_type: str, id: str) -> bool:
@@ -31,7 +36,7 @@ class InMemoryInventoryStorage(InventoryStorage, AsyncInventoryStorage):
     async def aselect(self, item_type: str) -> List[dict]:
         return self.select(item_type)
 
-    async def aread(self, item_type: str, id: str) -> dict:
+    async def aread(self, item_type: str, id: str) -> Optional[dict]:
         return self.read(item_type, id)
 
     async def awrite(self, item_type: str, item: dict) -> bool:

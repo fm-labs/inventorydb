@@ -32,7 +32,7 @@ def dir_storage(base_dir) -> DirectoryBasedInventoryStorage:
 
 
 def seed_file(base_dir: str, item_type: str, items: list) -> None:
-    """Pre-create the JSON file that FileBasedInventoryStorage expects to exist."""
+    """Pre-create a type's JSON file with the given items."""
     path = os.path.join(base_dir, f"{item_type}.json")
     with open(path, "w") as f:
         json.dump(items, f)
@@ -59,10 +59,8 @@ class TestFileBasedInventoryStorageSelect:
         seed_file(base_dir, "todo", items)
         assert file_storage.select("todo") == items
 
-    def test_select_raises_when_file_missing(self, file_storage):
-        """FileBasedInventoryStorage has no guard for a missing type file."""
-        with pytest.raises(FileNotFoundError):
-            file_storage.select("nonexistent_type")
+    def test_select_returns_empty_list_when_file_missing(self, file_storage):
+        assert file_storage.select("nonexistent_type") == []
 
     def test_select_returns_empty_list_for_empty_file(self, file_storage, base_dir):
         seed_file(base_dir, "todo", [])
@@ -75,6 +73,12 @@ class TestFileBasedInventoryStorageWrite:
         item = {"id": "1", "title": "Buy milk"}
         file_storage.write("todo", item)
         assert file_storage.select("todo") == [item]
+
+    def test_write_creates_file_for_new_type(self, file_storage, base_dir):
+        item = {"id": "1", "title": "Buy milk"}
+        file_storage.write("todo", item)
+        assert os.path.exists(os.path.join(base_dir, "todo.json"))
+        assert file_storage.read("todo", "1") == item
 
     def test_write_returns_true(self, file_storage, base_dir):
         seed_file(base_dir, "todo", [])
@@ -105,9 +109,12 @@ class TestFileBasedInventoryStorageRead:
         seed_file(base_dir, "todo", [item])
         assert file_storage.read("todo", "42") == item
 
-    def test_read_returns_empty_dict_when_not_found(self, file_storage, base_dir):
+    def test_read_returns_none_when_not_found(self, file_storage, base_dir):
         seed_file(base_dir, "todo", [{"id": "1"}])
-        assert file_storage.read("todo", "999") == {}
+        assert file_storage.read("todo", "999") is None
+
+    def test_read_returns_none_when_file_missing(self, file_storage):
+        assert file_storage.read("ghost_type", "1") is None
 
     def test_read_returns_correct_item_among_many(self, file_storage, base_dir):
         items = [{"id": str(i), "val": i} for i in range(5)]
@@ -127,13 +134,15 @@ class TestFileBasedInventoryStorageDelete:
         seed_file(base_dir, "todo", [{"id": "1"}])
         assert file_storage.delete("todo", "1") is True
 
-    def test_delete_returns_true_even_if_id_missing(self, file_storage, base_dir):
-        """Quirk: FileBasedInventoryStorage.delete always rewrites and returns True."""
+    def test_delete_returns_false_if_id_missing(self, file_storage, base_dir):
         seed_file(base_dir, "todo", [{"id": "1"}])
         result = file_storage.delete("todo", "nonexistent")
-        assert result is True
+        assert result is False
         # Original item is untouched
         assert len(file_storage.select("todo")) == 1
+
+    def test_delete_returns_false_when_file_missing(self, file_storage):
+        assert file_storage.delete("ghost_type", "1") is False
 
 
 # ===========================================================================
@@ -212,12 +221,12 @@ class TestDirectoryBasedInventoryStorageRead:
         dir_storage.write("todo", item)
         assert dir_storage.read("todo", "7") == item
 
-    def test_read_returns_empty_dict_when_not_found(self, dir_storage):
+    def test_read_returns_none_when_not_found(self, dir_storage):
         dir_storage.write("todo", {"id": "1"})
-        assert dir_storage.read("todo", "999") == {}
+        assert dir_storage.read("todo", "999") is None
 
-    def test_read_returns_empty_dict_when_type_missing(self, dir_storage):
-        assert dir_storage.read("ghost_type", "1") == {}
+    def test_read_returns_none_when_type_missing(self, dir_storage):
+        assert dir_storage.read("ghost_type", "1") is None
 
 
 class TestDirectoryBasedInventoryStorageDelete:
@@ -236,3 +245,40 @@ class TestDirectoryBasedInventoryStorageDelete:
         dir_storage.delete("todo", "1")
         remaining = dir_storage.select("todo")
         assert remaining == [{"id": "2"}]
+
+
+# ===========================================================================
+# Path validation (both file-based adapters)
+# ===========================================================================
+
+
+UNSAFE_NAMES = ["", ".", "..", "../escape", "a/b", "..\\escape", "nul\x00byte"]
+
+
+class TestFileStoragePathValidation:
+    @pytest.mark.parametrize("item_type", UNSAFE_NAMES)
+    def test_file_storage_rejects_unsafe_item_type(self, file_storage, item_type):
+        with pytest.raises(ValueError, match="Invalid item type"):
+            file_storage.write(item_type, {"id": "1"})
+
+    @pytest.mark.parametrize("item_type", UNSAFE_NAMES)
+    def test_dir_storage_rejects_unsafe_item_type(self, dir_storage, item_type):
+        with pytest.raises(ValueError, match="Invalid item type"):
+            dir_storage.write(item_type, {"id": "1"})
+
+    @pytest.mark.parametrize("item_id", [n for n in UNSAFE_NAMES if n])
+    def test_dir_storage_rejects_unsafe_item_id(self, dir_storage, item_id):
+        with pytest.raises(ValueError, match="Invalid item id"):
+            dir_storage.write("todo", {"id": item_id})
+        with pytest.raises(ValueError, match="Invalid item id"):
+            dir_storage.read("todo", item_id)
+        with pytest.raises(ValueError, match="Invalid item id"):
+            dir_storage.delete("todo", item_id)
+
+    def test_dir_storage_traversal_writes_nothing_outside_base_dir(self, tmp_path):
+        base = tmp_path / "base"
+        base.mkdir()
+        storage = DirectoryBasedInventoryStorage(str(base))
+        with pytest.raises(ValueError):
+            storage.write("todo", {"id": "../../escaped"})
+        assert list(tmp_path.rglob("escaped*")) == []
