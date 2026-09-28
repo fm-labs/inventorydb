@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - name: Install dependencies
         run: uv sync --locked
       - name: Ruff lint
@@ -52,7 +52,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.13", "3.14"]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -79,7 +79,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - name: Install dependencies
         run: uv sync --locked
       # Covers platform-specific code such as file locking (fcntl vs msvcrt). These
@@ -100,7 +100,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - name: Install package with lowest allowed extras
         run: |
           uv venv

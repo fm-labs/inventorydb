@@ -21,7 +21,7 @@ __No thrills__ - **just a simple key-value store for serializable Python objects
 
 ## Installation
 
-Requires Python 3.12+. The core package has no dependencies; in-memory, file-based
+Requires Python 3.13+. The core package has no dependencies; in-memory, file-based
 and SQLite storage work out of the box. Install extras for the other backends:
 
 ```bash
@@ -636,7 +636,7 @@ pull request, and as the first stage of every [release](#releasing):
 | Job | What it does |
 |---|---|
 | Lint, format and type check | Ruff lint, Ruff format check, and the mypy commands above (the library is also checked as Windows sees it, with `--platform win32`) |
-| Test | Full test suite on Python 3.12, 3.13 and 3.14 |
+| Test | Full test suite on Python 3.13 and 3.14 |
 | Test (Windows / macOS, no containers) | Test suite without the Redis and MongoDB tests, covering platform-specific code such as file locking |
 | Test (minimum dependency versions) | Test suite with the lowest versions of `redis`, `pymongo` and `pydantic` allowed by `pyproject.toml` |
 | Build distributions | Builds the sdist and wheel, and checks their metadata and contents |

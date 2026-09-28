@@ -2,7 +2,7 @@
 name = "inventorydb"
 version = "0.2.0"
 description = "Damn simple object store for Python dicts and Pydantic models across multiple backends"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = []
 authors = [
   { name="fm-labs", email="code@fmlabs.dev" },
@@ -13,7 +13,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
@@ -25,9 +24,9 @@ license = "MIT"
 license-files = ["LICEN[CS]E*"]
 
 [project.optional-dependencies]
-redis = ["redis>=4.2"]
-mongodb = ["pymongo>=4.5"]
-pydantic = ["pydantic>=2.4"]
+redis = ["redis>=6.0"]
+mongodb = ["pymongo>=4.9"]
+pydantic = ["pydantic>=2.8"]
 all = ["inventorydb[redis,mongodb,pydantic]"]
 
 [project.urls]
@@ -62,7 +61,7 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py313"
 line-length = 120
 
 [tool.ruff.lint]
@@ -78,6 +77,6 @@ select = [
 # `mypy` checks the library strictly. CI also checks tests and examples with:
 #   mypy --allow-untyped-defs --allow-incomplete-defs --allow-untyped-calls tests examples
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 files = ["src"]
 strict = true
