@@ -498,7 +498,7 @@ MongoDB tests use
 `mongo:7.0`, because `mongo:latest` does not start on Linux kernels 6.19+ (as used by
 recent Docker Desktop VMs). Override the image with `INVENTORYDB_TEST_MONGO_IMAGE`.
 
-### Linting
+### Linting and formatting
 
 [Ruff](https://docs.astral.sh/ruff/) checks for likely bugs, style issues, import
 order and outdated syntax. The enabled rules are listed under `[tool.ruff.lint]` in
@@ -507,6 +507,14 @@ order and outdated syntax. The enabled rules are listed under `[tool.ruff.lint]`
 ```bash
 uv run ruff check .        # report issues
 uv run ruff check --fix .  # apply safe automatic fixes
+```
+
+Code is formatted with Ruff's formatter (line length 120, set under `[tool.ruff]`).
+CI fails if any file is not formatted:
+
+```bash
+uv run ruff format .          # format all files
+uv run ruff format --check .  # check only, as CI does
 ```
 
 ### Type checking
@@ -533,12 +541,12 @@ pull request:
 
 | Job | What it does |
 |---|---|
-| Lint and type check | Ruff, plus both mypy commands above |
+| Lint, format and type check | Ruff lint, Ruff format check, and both mypy commands above |
 | Test | Full test suite on Python 3.12, 3.13 and 3.14 |
 | Test (minimum dependency versions) | Test suite with the lowest versions of `redis`, `pymongo` and `pydantic` allowed by `pyproject.toml` |
 | Build distributions | Builds the sdist and wheel, and checks their metadata and contents |
 
-Run the lint, type check and test commands above before pushing to catch
+Run the lint, format, type check and test commands above before pushing to catch
 failures early.
 
 ### Releasing
