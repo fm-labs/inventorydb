@@ -13,31 +13,31 @@ class FileBasedInventoryStorage(InventoryStorage):
         if not os.path.exists(self.inventory_dir):
             raise ValueError(f"Base directory {self.inventory_dir} does not exist.")
 
-    def select(self, inventory_type: str) -> List[dict]:
-        return self._read_file(inventory_type)
+    def select(self, item_type: str) -> List[dict]:
+        return self._read_file(item_type)
 
-    def write(self, inventory_type: str, item: dict) -> bool:
-        items = self.select(inventory_type)
+    def write(self, item_type: str, item: dict) -> bool:
+        items = self.select(item_type)
         for i, existing_item in enumerate(items):
             if existing_item["id"] == item["id"]:
                 items[i] = item
                 break
         else:
             items.append(item)
-        self._write_file(inventory_type, items)
+        self._write_file(item_type, items)
         return True
 
-    def read(self, inventory_type: str, id: str) -> dict:
-        items = self.select(inventory_type)
+    def read(self, item_type: str, id: str) -> dict:
+        items = self.select(item_type)
         for item in items:
             if item["id"] == id:
                 return item
         return {}
 
-    def delete(self, inventory_type: str, id: str) -> bool:
-        items = self.select(inventory_type)
+    def delete(self, item_type: str, id: str) -> bool:
+        items = self.select(item_type)
         items = [item for item in items if item["id"] != id]
-        self._write_file(inventory_type, items)
+        self._write_file(item_type, items)
         return True
 
     def _read_file(self, file_name: str) -> dict | list:
@@ -59,8 +59,8 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
         if not os.path.exists(self.inventory_dir):
             raise ValueError(f"Base directory {self.inventory_dir} does not exist.")
 
-    def select(self, inventory_type: str) -> List[dict]:
-        type_dir = f"{self.inventory_dir}/{inventory_type}"
+    def select(self, item_type: str) -> List[dict]:
+        type_dir = f"{self.inventory_dir}/{item_type}"
         if not os.path.exists(type_dir):
             return []
         items = []
@@ -70,8 +70,8 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
                     items.append(json.load(f))
         return items
 
-    def write(self, inventory_type: str, item: dict) -> bool:
-        type_dir = f"{self.inventory_dir}/{inventory_type}"
+    def write(self, item_type: str, item: dict) -> bool:
+        type_dir = f"{self.inventory_dir}/{item_type}"
         os.makedirs(type_dir, exist_ok=True)
         item_id = item.get("id")
         if not item_id:
@@ -80,16 +80,16 @@ class DirectoryBasedInventoryStorage(InventoryStorage):
             json.dump(item, f, indent=4)
         return True
 
-    def read(self, inventory_type: str, id: str) -> dict:
-        type_dir = f"{self.inventory_dir}/{inventory_type}"
+    def read(self, item_type: str, id: str) -> dict:
+        type_dir = f"{self.inventory_dir}/{item_type}"
         item_path = f"{type_dir}/{id}.json"
         if not os.path.exists(item_path):
             return {}
         with open(item_path, 'r') as f:
             return json.load(f)
 
-    def delete(self, inventory_type: str, id: str) -> bool:
-        type_dir = f"{self.inventory_dir}/{inventory_type}"
+    def delete(self, item_type: str, id: str) -> bool:
+        type_dir = f"{self.inventory_dir}/{item_type}"
         item_path = f"{type_dir}/{id}.json"
         if os.path.exists(item_path):
             os.remove(item_path)

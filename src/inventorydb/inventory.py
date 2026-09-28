@@ -1,5 +1,7 @@
 from typing import List
 
+from inventorydb.interface import InventoryStorage
+
 
 # def get_inventory_schema(item_type: str) -> dict:
 #     """
@@ -23,7 +25,7 @@ from typing import List
 
 class Inventory[T]:
 
-    def __init__(self, item_type, storage):
+    def __init__(self, item_type, storage: InventoryStorage):
         self.storage = storage
         self.item_type = item_type
     
@@ -31,8 +33,8 @@ class Inventory[T]:
         return self.storage.select(self.item_type)
 
 
-    def get(self, id: str) -> T:
-        return self.storage.get(self.item_type, id)
+    def get(self, id: str) -> T | None:
+        return self.storage.read(self.item_type, id)
 
 
     def save(self, item: T) -> T:
@@ -44,11 +46,11 @@ class Inventory[T]:
         #item["id"] = _id
         if not self.storage.write(self.item_type, item):
             return {"error": "Failed to save item"}
-        return self.storage.get(self.item_type, _id)
+        return self.storage.read(self.item_type, _id)
 
 
     def patch(self, id: str, data: dict) -> T:
-        item = self.storage.get(self.item_type, id)
+        item = self.storage.read(self.item_type, id)
         if not item:
             return {"error": "Item not found"}
         # fix: remove item_type from data if exists, since it's not stored in item properties

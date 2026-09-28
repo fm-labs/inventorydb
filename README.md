@@ -84,7 +84,7 @@ from inventorydb.storage.file_storage import FileBasedInventoryStorage
 storage = FileBasedInventoryStorage(base_dir="/var/data/myapp")
 ```
 
-All items of one type are stored in `{base_dir}/{inventory_type}.json`.
+All items of one type are stored in `{base_dir}/{item_type}.json`.
 The directory must exist before construction.
 
 ### File-Based (one file per item)
@@ -95,7 +95,7 @@ from inventorydb.storage.file_storage import DirectoryBasedInventoryStorage
 storage = DirectoryBasedInventoryStorage(base_dir="/var/data/myapp")
 ```
 
-Items are stored at `{base_dir}/{inventory_type}/{id}.json`.
+Items are stored at `{base_dir}/{item_type}/{id}.json`.
 Type directories are created automatically on first write.
 
 ### SQLite
@@ -106,7 +106,7 @@ from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
 storage = SQLiteInventoryStorage(db_path="myapp.db")
 ```
 
-Uses a single `items` table with a `(inventory_type, id)` primary key and JSON
+Uses a single `items` table with a `(item_type, id)` primary key and JSON
 blob storage. The table is created automatically. No external dependencies needed.
 
 ### Redis
@@ -119,7 +119,7 @@ client = redis.Redis(host="localhost", port=6379, decode_responses=True)
 storage = RedisInventoryStorage(redis_client=client)
 ```
 
-Items are stored as Redis hashes under the key `{inventory_type}:{id}`.
+Items are stored as Redis hashes under the key `{item_type}:{id}`.
 Pass a pre-configured `redis.Redis` client (sync). Requires `redis-py`.
 
 ### MongoDB
@@ -132,7 +132,7 @@ client = pymongo.MongoClient("mongodb://localhost:27017")
 storage = MongoDBInventoryStorage(mongo_client=client)
 ```
 
-Items are stored in the `inventory` database, one collection per `inventory_type`.
+Items are stored in the `inventory` database, one collection per `item_type`.
 The MongoDB `_id` field is stripped from results automatically.
 Pass a pre-configured `pymongo.MongoClient`. Requires `pymongo`.
 
@@ -298,10 +298,10 @@ from typing import List, Protocol, runtime_checkable
 
 @runtime_checkable
 class InventoryStorage(Protocol):
-    def select(self, inventory_type: str) -> List[dict]: ...
-    def read(self, inventory_type: str, id: str) -> dict: ...
-    def write(self, inventory_type: str, item: dict) -> bool: ...
-    def delete(self, inventory_type: str, id: str) -> bool: ...
+    def select(self, item_type: str) -> List[dict]: ...
+    def read(self, item_type: str, id: str) -> dict: ...
+    def write(self, item_type: str, item: dict) -> bool: ...
+    def delete(self, item_type: str, id: str) -> bool: ...
 ```
 
 ### Async — `AsyncInventoryStorage`
@@ -312,10 +312,10 @@ from typing import List, Protocol, runtime_checkable
 
 @runtime_checkable
 class AsyncInventoryStorage(Protocol):
-    async def aselect(self, inventory_type: str) -> List[dict]: ...
-    async def aread(self, inventory_type: str, id: str) -> dict: ...
-    async def awrite(self, inventory_type: str, item: dict) -> bool: ...
-    async def adelete(self, inventory_type: str, id: str) -> bool: ...
+    async def aselect(self, item_type: str) -> List[dict]: ...
+    async def aread(self, item_type: str, id: str) -> dict: ...
+    async def awrite(self, item_type: str, item: dict) -> bool: ...
+    async def adelete(self, item_type: str, id: str) -> bool: ...
 ```
 
 ### Duck-typing — no inheritance needed
@@ -326,16 +326,16 @@ subclass anything from `inventorydb`:
 
 ```python
 class MyCustomStorage:
-    def select(self, inventory_type: str) -> list[dict]:
+    def select(self, item_type: str) -> list[dict]:
         ...
 
-    def read(self, inventory_type: str, id: str) -> dict:
+    def read(self, item_type: str, id: str) -> dict:
         ...
 
-    def write(self, inventory_type: str, item: dict) -> bool:
+    def write(self, item_type: str, item: dict) -> bool:
         ...
 
-    def delete(self, inventory_type: str, id: str) -> bool:
+    def delete(self, item_type: str, id: str) -> bool:
         ...
 
 # Works — no explicit inheritance required

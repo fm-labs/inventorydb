@@ -31,9 +31,9 @@ def dir_storage(base_dir) -> DirectoryBasedInventoryStorage:
     return DirectoryBasedInventoryStorage(base_dir)
 
 
-def seed_file(base_dir: str, inventory_type: str, items: list) -> None:
+def seed_file(base_dir: str, item_type: str, items: list) -> None:
     """Pre-create the JSON file that FileBasedInventoryStorage expects to exist."""
-    path = os.path.join(base_dir, f"{inventory_type}.json")
+    path = os.path.join(base_dir, f"{item_type}.json")
     with open(path, "w") as f:
         json.dump(items, f)
 

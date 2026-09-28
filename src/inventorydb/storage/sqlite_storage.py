@@ -6,10 +6,10 @@ from inventorydb.interface import InventoryStorage
 
 CREATE_TABLE_SQL = """
     CREATE TABLE IF NOT EXISTS items (
-        inventory_type  TEXT NOT NULL,
+        item_type  TEXT NOT NULL,
         id              TEXT NOT NULL,
         data            TEXT NOT NULL,
-        PRIMARY KEY (inventory_type, id)
+        PRIMARY KEY (item_type, id)
     )
 """
 
@@ -19,6 +19,7 @@ class SQLiteInventoryStorage(InventoryStorage):
 
     def __init__(self, db_path: str):
         self.db_path = db_path
+        print(f"Initializing SQLiteInventoryStorage with db_path: {db_path}")
         with self._connect() as conn:
             conn.execute(CREATE_TABLE_SQL)
 
@@ -27,38 +28,38 @@ class SQLiteInventoryStorage(InventoryStorage):
         conn.row_factory = sqlite3.Row
         return conn
 
-    def select(self, inventory_type: str) -> List[dict]:
+    def select(self, item_type: str) -> List[dict]:
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT data FROM items WHERE inventory_type = ?",
-                (inventory_type,),
+                "SELECT data FROM items WHERE item_type = ?",
+                (item_type,),
             ).fetchall()
         return [json.loads(row["data"]) for row in rows]
 
-    def read(self, inventory_type: str, id: str) -> dict:
+    def read(self, item_type: str, id: str) -> dict:
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT data FROM items WHERE inventory_type = ? AND id = ?",
-                (inventory_type, id),
+                "SELECT data FROM items WHERE item_type = ? AND id = ?",
+                (item_type, id),
             ).fetchone()
         return json.loads(row["data"]) if row else {}
 
-    def write(self, inventory_type: str, item: dict) -> bool:
+    def write(self, item_type: str, item: dict) -> bool:
         with self._connect() as conn:
             conn.execute(
                 """
-                INSERT INTO items (inventory_type, id, data)
+                INSERT INTO items (item_type, id, data)
                 VALUES (?, ?, ?)
-                ON CONFLICT (inventory_type, id) DO UPDATE SET data = excluded.data
+                ON CONFLICT (item_type, id) DO UPDATE SET data = excluded.data
                 """,
-                (inventory_type, item["id"], json.dumps(item)),
+                (item_type, item["id"], json.dumps(item)),
             )
         return True
 
-    def delete(self, inventory_type: str, id: str) -> bool:
+    def delete(self, item_type: str, id: str) -> bool:
         with self._connect() as conn:
             cursor = conn.execute(
-                "DELETE FROM items WHERE inventory_type = ? AND id = ?",
-                (inventory_type, id),
+                "DELETE FROM items WHERE item_type = ? AND id = ?",
+                (item_type, id),
             )
         return cursor.rowcount > 0
