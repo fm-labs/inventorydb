@@ -257,7 +257,7 @@ class TestDirectoryBasedInventoryStorageDelete:
 # ===========================================================================
 
 
-UNSAFE_NAMES = ["", ".", "..", "../escape", "a/b", "..\\escape", "nul\x00byte"]
+UNSAFE_NAMES = ["", ".", "..", "../escape", "a/b", "..\\escape", "nul\x00byte", "new\nline", "carriage\rreturn"]
 
 
 class TestFileStoragePathValidation:
@@ -387,20 +387,6 @@ class TestFileBasedInventoryStorageFiles:
 
 
 class TestDirectoryBasedInventoryStorageFiles:
-    def test_keys_ignores_non_item_files(self, dir_storage, base_dir):
-        dir_storage.write("todo", {"id": "1"})
-        type_dir = os.path.join(base_dir, "todo")
-        for name in (".1.json.abc123.tmp", "notes.txt"):  # e.g. an in-progress atomic write
-            with open(os.path.join(type_dir, name), "w") as f:
-                f.write("x")
-        assert dir_storage.keys("todo") == ["1"]
-
-    def test_keys_does_not_open_item_files(self, dir_storage, base_dir):
-        dir_storage.write("todo", {"id": "1"})
-        with open(os.path.join(base_dir, "todo", "1.json"), "w") as f:
-            f.write("not json")  # items() would fail on this; keys() must not read it
-        assert dir_storage.keys("todo") == ["1"]
-
     def test_failed_write_leaves_no_partial_item(self, dir_storage, base_dir):
         dir_storage.write("todo", {"id": "1"})
         with pytest.raises(TypeError):
@@ -413,4 +399,128 @@ class TestDirectoryBasedInventoryStorageFiles:
         with pytest.raises(TypeError):
             dir_storage.write("todo", {"id": "1", "bad": object()})
         assert dir_storage.read("todo", "1") == {"id": "1", "v": 1}
-        assert os.listdir(os.path.join(base_dir, "todo")) == ["1.json"]
+        assert sorted(os.listdir(os.path.join(base_dir, "todo"))) == [".index", ".index.lock", "1.json"]
+
+
+def read_index(base_dir: str, item_type: str) -> list[str]:
+    with open(os.path.join(base_dir, item_type, ".index")) as f:
+        return f.read().splitlines()
+
+
+DIR_WRITER_PROCESS = """
+import sys
+from inventorydb.storage.file_storage import DirectoryBasedInventoryStorage
+storage = DirectoryBasedInventoryStorage(sys.argv[1])
+for i in range(int(sys.argv[3])):
+    storage.write("todo", {"id": f"{sys.argv[2]}-{i}"})
+    if i % 2:
+        storage.delete("todo", f"{sys.argv[2]}-{i}")
+"""
+
+
+class TestDirectoryBasedInventoryStorageIndex:
+    def test_write_appends_id_to_index(self, dir_storage, base_dir):
+        dir_storage.write("todo", {"id": "1"})
+        dir_storage.write("todo", {"id": "2"})
+        assert read_index(base_dir, "todo") == ["1", "2"]
+
+    def test_overwrite_does_not_duplicate_id(self, dir_storage, base_dir):
+        dir_storage.write("todo", {"id": "1", "v": 1})
+        dir_storage.write("todo", {"id": "1", "v": 2})
+        assert read_index(base_dir, "todo") == ["1"]
+
+    def test_delete_removes_id_from_index(self, dir_storage, base_dir):
+        for i in ("1", "2", "3"):
+            dir_storage.write("todo", {"id": i})
+        assert dir_storage.delete("todo", "2") is True
+        assert read_index(base_dir, "todo") == ["1", "3"]
+        assert dir_storage.keys("todo") == ["1", "3"]
+
+    def test_delete_of_missing_item_leaves_index_unchanged(self, dir_storage, base_dir):
+        dir_storage.write("todo", {"id": "1"})
+        assert dir_storage.delete("todo", "2") is False
+        assert read_index(base_dir, "todo") == ["1"]
+
+    def test_failed_write_does_not_add_id(self, dir_storage, base_dir):
+        dir_storage.write("todo", {"id": "1"})
+        with pytest.raises(TypeError):
+            dir_storage.write("todo", {"id": "2", "bad": object()})
+        assert read_index(base_dir, "todo") == ["1"]
+
+    def test_keys_reads_index_without_scanning_directory(self, dir_storage, base_dir, monkeypatch):
+        dir_storage.write("todo", {"id": "1"})
+        dir_storage.write("todo", {"id": "2"})
+
+        def no_listdir(path):
+            raise AssertionError("keys() scanned the directory")
+
+        monkeypatch.setattr(os, "listdir", no_listdir)
+        assert dir_storage.keys("todo") == ["1", "2"]
+
+    def test_keys_does_not_open_item_files(self, dir_storage, base_dir):
+        dir_storage.write("todo", {"id": "1"})
+        with open(os.path.join(base_dir, "todo", "1.json"), "w") as f:
+            f.write("not json")  # items() would fail on this; keys() must not read it
+        assert dir_storage.keys("todo") == ["1"]
+
+    def test_index_files_are_not_items(self, dir_storage, base_dir):
+        dir_storage.write("todo", {"id": "1"})
+        assert dir_storage.items("todo") == [{"id": "1"}]
+        assert dir_storage.keys("todo") == ["1"]
+
+    def test_type_dir_without_index_is_scanned(self, dir_storage, base_dir):
+        # Data written before indexing existed: item files but no index.
+        type_dir = os.path.join(base_dir, "todo")
+        os.makedirs(type_dir)
+        for name in ("1.json", "2.json", "notes.txt", ".1.json.abc123.tmp"):
+            with open(os.path.join(type_dir, name), "w") as f:
+                json.dump({"id": name.split(".")[0]}, f)
+        assert sorted(dir_storage.keys("todo")) == ["1", "2"]
+
+    def test_first_write_indexes_existing_items(self, dir_storage, base_dir):
+        type_dir = os.path.join(base_dir, "todo")
+        os.makedirs(type_dir)
+        with open(os.path.join(type_dir, "old.json"), "w") as f:
+            json.dump({"id": "old"}, f)
+        dir_storage.write("todo", {"id": "new"})
+        assert sorted(read_index(base_dir, "todo")) == ["new", "old"]
+
+    def test_first_delete_indexes_remaining_items(self, dir_storage, base_dir):
+        type_dir = os.path.join(base_dir, "todo")
+        os.makedirs(type_dir)
+        for i in ("1", "2"):
+            with open(os.path.join(type_dir, f"{i}.json"), "w") as f:
+                json.dump({"id": i}, f)
+        assert dir_storage.delete("todo", "1") is True
+        assert read_index(base_dir, "todo") == ["2"]
+
+    def test_rebuild_index_resyncs_with_item_files(self, dir_storage, base_dir):
+        dir_storage.write("todo", {"id": "1"})
+        dir_storage.write("todo", {"id": "2"})
+        type_dir = os.path.join(base_dir, "todo")
+        os.remove(os.path.join(type_dir, "1.json"))  # removed behind the storage's back
+        with open(os.path.join(type_dir, "3.json"), "w") as f:
+            json.dump({"id": "3"}, f)
+        dir_storage.rebuild_index("todo")
+        assert sorted(dir_storage.keys("todo")) == ["2", "3"]
+
+    def test_rebuild_index_of_missing_type_creates_nothing(self, dir_storage, base_dir):
+        dir_storage.rebuild_index("ghost")
+        assert os.listdir(base_dir) == []
+
+    def test_read_and_delete_of_missing_type_create_no_files(self, dir_storage, base_dir):
+        assert dir_storage.keys("ghost") == []
+        assert dir_storage.delete("ghost", "1") is False
+        assert os.listdir(base_dir) == []
+
+    def test_concurrent_processes_keep_index_in_sync(self, dir_storage, base_dir):
+        workers, per_worker = 4, 25
+        procs = [
+            subprocess.Popen([sys.executable, "-c", DIR_WRITER_PROCESS, base_dir, str(w), str(per_worker)])
+            for w in range(workers)
+        ]
+        for p in procs:
+            assert p.wait(timeout=60) == 0
+        expected = sorted(f"{w}-{i}" for w in range(workers) for i in range(0, per_worker, 2))
+        assert sorted(read_index(base_dir, "todo")) == expected
+        assert sorted(item["id"] for item in dir_storage.items("todo")) == expected

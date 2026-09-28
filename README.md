@@ -138,9 +138,21 @@ Items are stored at `{base_dir}/{item_type}/{id}.json`.
 Type directories are created automatically on first write.
 Item types and ids must be safe file names (no `/`, `\`, `..`), otherwise `ValueError` is raised.
 
+Each type directory also contains an index file, `.index`, listing the ids of
+all items of that type, one per line. Writes append new ids and deletes remove
+them, so `keys()` reads the index instead of scanning the directory. A type
+directory without an index (e.g. data written by an older version) is scanned
+until the next write or delete creates the index. If the index gets out of step
+with the item files — after a crash between writing an item and updating the
+index, or after editing item files by hand — call
+`storage.rebuild_index(item_type)`. Ids and item types can't contain newlines.
+
 Item files are replaced atomically, so readers never see a half-written item.
-Writes to different items don't interfere; concurrent writes to the same item
-are last-writer-wins.
+Writes and deletes hold an exclusive lock on `.index.lock` in the type
+directory while they update the item file and the index, so the index stays
+correct with concurrent writers across threads and processes; concurrent writes
+to the same item are last-writer-wins. Locks are advisory and may not work on
+network file systems (NFS, SMB).
 
 ### SQLite
 

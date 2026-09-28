@@ -74,6 +74,14 @@ def _replace(src: str, dst: str) -> None:
 def atomic_write_json(path: str, data: Any) -> None:
     """Write ``data`` as JSON to ``path`` so readers see either the old or the new file, never a partial one.
 
+    See ``atomic_write_text``.
+    """
+    atomic_write_text(path, json.dumps(data, indent=4))
+
+
+def atomic_write_text(path: str, text: str) -> None:
+    """Write ``text`` to ``path`` so readers see either the old or the new file, never a partial one.
+
     Writes to a temporary file in the same directory and renames it over ``path``.
     Keeps the permissions of an existing ``path``; a new file gets the default
     permissions for the current umask.
@@ -82,7 +90,7 @@ def atomic_write_json(path: str, data: Any) -> None:
     tmp_path = os.path.join(directory, f".{name}.{uuid.uuid4().hex}.tmp")
     try:
         with open(tmp_path, "x") as f:
-            json.dump(data, f, indent=4)
+            f.write(text)
             f.flush()
             os.fsync(f.fileno())
         if os.path.exists(path):
