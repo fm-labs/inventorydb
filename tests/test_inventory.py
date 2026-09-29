@@ -3,10 +3,10 @@
 import pydantic
 import pytest
 
-from inventorydb.errors import InventoryError, ItemNotFoundError
-from inventorydb.inventory import Inventory
-from inventorydb.pydantic import PydanticInventory
-from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
+from objbase.errors import InventoryError, ItemNotFoundError
+from objbase.inventory import Inventory
+from objbase.pydantic import PydanticInventory
+from objbase.storage.inmemory_storage import InMemoryInventoryStorage
 
 
 @pytest.fixture()

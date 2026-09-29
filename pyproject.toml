@@ -1,5 +1,5 @@
 [project]
-name = "inventorydb"
+name = "objbase"
 version = "0.2.2"
 description = "Damn simple object store for Python dicts and Pydantic models across multiple backends"
 requires-python = ">=3.13"
@@ -27,11 +27,11 @@ license-files = ["LICEN[CS]E*"]
 redis = ["redis>=6.0"]
 mongodb = ["pymongo>=4.13"]
 pydantic = ["pydantic>=2.8"]
-all = ["inventorydb[redis,mongodb,pydantic]"]
+all = ["objbase[redis,mongodb,pydantic]"]
 
 [project.urls]
-Homepage = "https://github.com/fm-labs/inventorydb"
-Issues = "https://github.com/fm-labs/inventorydb/issues"
+Homepage = "https://github.com/fm-labs/objbase"
+Issues = "https://github.com/fm-labs/objbase/issues"
 
 
 [build-system]

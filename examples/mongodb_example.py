@@ -1,12 +1,12 @@
-# To-do list backed by MongoDB. Requires `pip install "inventorydb[mongodb]"` and a running MongoDB,
+# To-do list backed by MongoDB. Requires `pip install "objbase[mongodb]"` and a running MongoDB,
 # e.g. `docker run --rm -p 27017:27017 mongo:7.0`. Set MONGODB_URI to use a different server.
 import os
 
 import pymongo
 
-from inventorydb.interface import Item
-from inventorydb.inventory import Inventory
-from inventorydb.storage.mongodb_storage import MongoDBInventoryStorage
+from objbase.interface import Item
+from objbase.inventory import Inventory
+from objbase.storage.mongodb_storage import MongoDBInventoryStorage
 
 client: pymongo.MongoClient[Item] = pymongo.MongoClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
 storage = MongoDBInventoryStorage(mongo_client=client)

@@ -1,7 +1,7 @@
-from inventorydb.asyncio.async_storage import AsyncInventoryStorage
-from inventorydb.errors import InventoryError, ItemNotFoundError
-from inventorydb.interface import Item
-from inventorydb.inventory import check_patch_data, require_item_id, require_read_back
+from objbase.asyncio.async_storage import AsyncInventoryStorage
+from objbase.errors import InventoryError, ItemNotFoundError
+from objbase.interface import Item
+from objbase.inventory import check_patch_data, require_item_id, require_read_back
 
 
 class AsyncInventory:

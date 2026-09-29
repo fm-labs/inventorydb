@@ -1,8 +1,8 @@
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
-from inventorydb.asyncio.async_storage import AsyncInventoryStorage
-from inventorydb.interface import Item
+from objbase.asyncio.async_storage import AsyncInventoryStorage
+from objbase.interface import Item
 
 if TYPE_CHECKING:
     from pymongo import AsyncMongoClient

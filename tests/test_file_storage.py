@@ -9,12 +9,12 @@ import threading
 
 import pytest
 
-from inventorydb.interface import Item
-from inventorydb.storage.file_storage import (
+from objbase.interface import Item
+from objbase.storage.file_storage import (
     DirectoryBasedInventoryStorage,
     FileBasedInventoryStorage,
 )
-from inventorydb.util.file_util import locked
+from objbase.util.file_util import locked
 
 # ---------------------------------------------------------------------------
 # Helpers / shared fixtures
@@ -413,7 +413,7 @@ class TestFileStorageWindowsNames:
 
 WRITER_PROCESS = """
 import sys
-from inventorydb.storage.file_storage import FileBasedInventoryStorage
+from objbase.storage.file_storage import FileBasedInventoryStorage
 storage = FileBasedInventoryStorage(sys.argv[1])
 for i in range(int(sys.argv[3])):
     storage.write("todo", {"id": f"{sys.argv[2]}-{i}"})
@@ -526,7 +526,7 @@ def read_index(base_dir: str, item_type: str) -> list[str]:
 
 DIR_WRITER_PROCESS = """
 import sys
-from inventorydb.storage.file_storage import DirectoryBasedInventoryStorage
+from objbase.storage.file_storage import DirectoryBasedInventoryStorage
 storage = DirectoryBasedInventoryStorage(sys.argv[1])
 for i in range(int(sys.argv[3])):
     storage.write("todo", {"id": f"{sys.argv[2]}-{i}"})

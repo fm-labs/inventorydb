@@ -2,8 +2,8 @@ import json
 import os
 import sys
 
-from inventorydb.interface import InventoryStorage, Item
-from inventorydb.util.file_util import atomic_write_json, atomic_write_text, locked
+from objbase.interface import InventoryStorage, Item
+from objbase.util.file_util import atomic_write_json, atomic_write_text, locked
 
 # Newlines are rejected because the directory storage index stores one id per line.
 _UNSAFE_CHARS = "/\\\x00\n\r"

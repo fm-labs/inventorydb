@@ -126,5 +126,5 @@ jobs:
       - name: Check wheel contents
         run: |
           unzip -l dist/*.whl | tee wheel-contents.txt
-          grep -q "inventorydb/py.typed" wheel-contents.txt
+          grep -q "objbase/py.typed" wheel-contents.txt
           grep -q "licenses/LICENSE" wheel-contents.txt

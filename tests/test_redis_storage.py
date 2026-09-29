@@ -5,7 +5,7 @@ import json
 import pytest
 from testcontainers.community.redis import RedisContainer
 
-from inventorydb.storage.redis_storage import RedisInventoryStorage
+from objbase.storage.redis_storage import RedisInventoryStorage
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -1,7 +1,7 @@
 import asyncio
 
-from inventorydb.asyncio.async_inventory import AsyncInventory
-from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
+from objbase.asyncio.async_inventory import AsyncInventory
+from objbase.storage.inmemory_storage import InMemoryInventoryStorage
 
 
 async def main():

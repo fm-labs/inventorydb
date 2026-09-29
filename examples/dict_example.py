@@ -1,6 +1,6 @@
 # Simple To-do List Example
-from inventorydb.inventory import Inventory
-from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
+from objbase.inventory import Inventory
+from objbase.storage.inmemory_storage import InMemoryInventoryStorage
 
 # Replace with actual storage instance
 todos_inventory = Inventory(item_type="todo", storage=InMemoryInventoryStorage())

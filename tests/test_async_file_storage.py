@@ -6,9 +6,9 @@ import threading
 
 import pytest
 
-from inventorydb.asyncio.async_file_storage import AsyncDirectoryBasedInventoryStorage, AsyncFileBasedInventoryStorage
-from inventorydb.asyncio.async_inventory import AsyncInventory
-from inventorydb.storage.file_storage import DirectoryBasedInventoryStorage, FileBasedInventoryStorage
+from objbase.asyncio.async_file_storage import AsyncDirectoryBasedInventoryStorage, AsyncFileBasedInventoryStorage
+from objbase.asyncio.async_inventory import AsyncInventory
+from objbase.storage.file_storage import DirectoryBasedInventoryStorage, FileBasedInventoryStorage
 
 ADAPTERS = [
     pytest.param((AsyncFileBasedInventoryStorage, FileBasedInventoryStorage), id="file"),

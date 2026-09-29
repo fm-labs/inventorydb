@@ -1,7 +1,7 @@
 from typing import Any
 
-from inventorydb.errors import InventoryError, ItemNotFoundError
-from inventorydb.interface import InventoryStorage, Item
+from objbase.errors import InventoryError, ItemNotFoundError
+from objbase.interface import InventoryStorage, Item
 
 
 def require_item_id(item: Item) -> Any:

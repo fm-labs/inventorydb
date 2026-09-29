@@ -2,7 +2,7 @@
 
 import pytest
 
-from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
+from objbase.storage.inmemory_storage import InMemoryInventoryStorage
 
 
 @pytest.fixture()

@@ -3,8 +3,8 @@
 import asyncio
 import os
 
-from inventorydb.asyncio.async_file_storage import AsyncFileBasedInventoryStorage
-from inventorydb.asyncio.async_inventory import AsyncInventory
+from objbase.asyncio.async_file_storage import AsyncFileBasedInventoryStorage
+from objbase.asyncio.async_inventory import AsyncInventory
 
 
 async def main() -> None:

@@ -1,5 +1,5 @@
-from inventorydb.asyncio.threaded_storage import ThreadedAsyncInventoryStorage
-from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
+from objbase.asyncio.threaded_storage import ThreadedAsyncInventoryStorage
+from objbase.storage.sqlite_storage import SQLiteInventoryStorage
 
 
 class AsyncSQLiteInventoryStorage(ThreadedAsyncInventoryStorage[SQLiteInventoryStorage]):

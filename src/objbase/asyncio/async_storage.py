@@ -1,6 +1,6 @@
 from typing import Protocol, runtime_checkable
 
-from inventorydb.interface import Item
+from objbase.interface import Item
 
 
 @runtime_checkable

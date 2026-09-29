@@ -1,10 +1,10 @@
 import pydantic
 
-from inventorydb.asyncio.async_inventory import AsyncInventory
-from inventorydb.asyncio.async_storage import AsyncInventoryStorage
-from inventorydb.errors import ItemNotFoundError
-from inventorydb.interface import InventoryStorage, Item
-from inventorydb.inventory import Inventory, check_patch_data
+from objbase.asyncio.async_inventory import AsyncInventory
+from objbase.asyncio.async_storage import AsyncInventoryStorage
+from objbase.errors import ItemNotFoundError
+from objbase.interface import InventoryStorage, Item
+from objbase.inventory import Inventory, check_patch_data
 
 
 def _dump(model: pydantic.BaseModel) -> Item:

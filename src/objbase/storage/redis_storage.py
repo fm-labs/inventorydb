@@ -1,7 +1,7 @@
 import json
 from typing import Any, Protocol
 
-from inventorydb.interface import InventoryStorage, Item
+from objbase.interface import InventoryStorage, Item
 
 DEFAULT_KEY_PREFIX = "inventory:"
 

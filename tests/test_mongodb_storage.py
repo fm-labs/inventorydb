@@ -5,7 +5,7 @@ import os
 import pytest
 from testcontainers.community.mongodb import MongoDbContainer
 
-from inventorydb.storage.mongodb_storage import MongoDBInventoryStorage
+from objbase.storage.mongodb_storage import MongoDBInventoryStorage
 
 # mongo:latest (8.x) refuses to start on Linux kernels >= 6.19 (SERVER-121912),
 # which recent Docker Desktop VMs ship. Pin a known-good image by default.

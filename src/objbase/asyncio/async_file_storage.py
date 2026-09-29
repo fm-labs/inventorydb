@@ -1,7 +1,7 @@
 import asyncio
 
-from inventorydb.asyncio.threaded_storage import ThreadedAsyncInventoryStorage
-from inventorydb.storage.file_storage import DirectoryBasedInventoryStorage, FileBasedInventoryStorage
+from objbase.asyncio.threaded_storage import ThreadedAsyncInventoryStorage
+from objbase.storage.file_storage import DirectoryBasedInventoryStorage, FileBasedInventoryStorage
 
 
 class AsyncFileBasedInventoryStorage(ThreadedAsyncInventoryStorage[FileBasedInventoryStorage]):

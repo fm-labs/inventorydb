@@ -3,11 +3,11 @@
 import pydantic
 import pytest
 
-from inventorydb.asyncio.async_inventory import AsyncInventory
-from inventorydb.errors import InventoryError, ItemNotFoundError
-from inventorydb.pydantic import AsyncPydanticInventory
-from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
-from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
+from objbase.asyncio.async_inventory import AsyncInventory
+from objbase.errors import InventoryError, ItemNotFoundError
+from objbase.pydantic import AsyncPydanticInventory
+from objbase.storage.inmemory_storage import InMemoryInventoryStorage
+from objbase.storage.sqlite_storage import SQLiteInventoryStorage
 
 
 @pytest.fixture()

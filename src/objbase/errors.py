@@ -1,5 +1,5 @@
 class InventoryError(Exception):
-    """Base class for all inventorydb errors."""
+    """Base class for all objbase errors."""
 
 
 class ItemNotFoundError(InventoryError, LookupError):

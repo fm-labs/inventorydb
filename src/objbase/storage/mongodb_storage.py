@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
-from inventorydb.interface import InventoryStorage, Item
+from objbase.interface import InventoryStorage, Item
 
 if TYPE_CHECKING:
     from pymongo import MongoClient

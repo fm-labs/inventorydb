@@ -15,14 +15,14 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from inventorydb.asyncio.async_storage import AsyncInventoryStorage
-from inventorydb.interface import InventoryStorage, Item
-from inventorydb.storage.file_storage import (
+from objbase.asyncio.async_storage import AsyncInventoryStorage
+from objbase.interface import InventoryStorage, Item
+from objbase.storage.file_storage import (
     DirectoryBasedInventoryStorage,
     FileBasedInventoryStorage,
 )
-from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
-from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
+from objbase.storage.inmemory_storage import InMemoryInventoryStorage
+from objbase.storage.sqlite_storage import SQLiteInventoryStorage
 
 # See tests/test_mongodb_storage.py for why mongo:latest is not used.
 MONGO_IMAGE = os.getenv("INVENTORYDB_TEST_MONGO_IMAGE", "mongo:7.0")
@@ -80,7 +80,7 @@ def _sqlite(request, tmp_path):
 
 
 def _redis(request, tmp_path):
-    from inventorydb.storage.redis_storage import RedisInventoryStorage
+    from objbase.storage.redis_storage import RedisInventoryStorage
 
     client = request.getfixturevalue("redis_container").get_client()
     client.flushdb()
@@ -88,7 +88,7 @@ def _redis(request, tmp_path):
 
 
 def _mongodb(request, tmp_path):
-    from inventorydb.storage.mongodb_storage import MongoDBInventoryStorage
+    from objbase.storage.mongodb_storage import MongoDBInventoryStorage
 
     client = request.getfixturevalue("mongo_container").get_connection_client()
     client.drop_database("inventory")
@@ -254,19 +254,19 @@ async def _async_inmemory(request):
 
 
 async def _async_file(request):
-    from inventorydb.asyncio.async_file_storage import AsyncFileBasedInventoryStorage
+    from objbase.asyncio.async_file_storage import AsyncFileBasedInventoryStorage
 
     return AsyncFileBasedInventoryStorage(str(request.getfixturevalue("tmp_path")))
 
 
 async def _async_directory(request):
-    from inventorydb.asyncio.async_file_storage import AsyncDirectoryBasedInventoryStorage
+    from objbase.asyncio.async_file_storage import AsyncDirectoryBasedInventoryStorage
 
     return AsyncDirectoryBasedInventoryStorage(str(request.getfixturevalue("tmp_path")))
 
 
 async def _async_sqlite(request):
-    from inventorydb.asyncio.async_sqlite_storage import AsyncSQLiteInventoryStorage
+    from objbase.asyncio.async_sqlite_storage import AsyncSQLiteInventoryStorage
 
     return AsyncSQLiteInventoryStorage(str(request.getfixturevalue("tmp_path") / "contract.db"))
 
@@ -274,7 +274,7 @@ async def _async_sqlite(request):
 async def _async_redis(request):
     import redis.asyncio
 
-    from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage
+    from objbase.asyncio.async_redis_storage import AsyncRedisInventoryStorage
 
     container = request.getfixturevalue("redis_container")
     client = redis.asyncio.Redis(
@@ -289,7 +289,7 @@ async def _async_redis(request):
 async def _async_mongodb(request):
     import pymongo
 
-    from inventorydb.asyncio.async_mongodb_storage import AsyncMongoDBInventoryStorage
+    from objbase.asyncio.async_mongodb_storage import AsyncMongoDBInventoryStorage
 
     url = request.getfixturevalue("mongo_container").get_connection_url()
     client: pymongo.AsyncMongoClient[Item] = pymongo.AsyncMongoClient(url)

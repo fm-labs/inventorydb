@@ -5,30 +5,30 @@ import sys
 
 import pytest
 
-import inventorydb
+import objbase
 
 
 def test_all_names_are_importable():
-    for name in inventorydb.__all__:
-        assert getattr(inventorydb, name) is not None, name
+    for name in objbase.__all__:
+        assert getattr(objbase, name) is not None, name
 
 
 def test_top_level_names_are_the_submodule_objects():
-    from inventorydb.inventory import Inventory
-    from inventorydb.pydantic import AsyncPydanticInventory, PydanticInventory
+    from objbase.inventory import Inventory
+    from objbase.pydantic import AsyncPydanticInventory, PydanticInventory
 
-    assert inventorydb.Inventory is Inventory
-    assert inventorydb.PydanticInventory is PydanticInventory
-    assert inventorydb.AsyncPydanticInventory is AsyncPydanticInventory
+    assert objbase.Inventory is Inventory
+    assert objbase.PydanticInventory is PydanticInventory
+    assert objbase.AsyncPydanticInventory is AsyncPydanticInventory
 
 
 def test_version_is_set():
-    assert inventorydb.__version__ and inventorydb.__version__ != "0.0.0"
+    assert objbase.__version__ and objbase.__version__ != "0.0.0"
 
 
 def test_unknown_attribute_raises():
     with pytest.raises(AttributeError, match="DoesNotExist"):
-        _ = inventorydb.DoesNotExist
+        _ = objbase.DoesNotExist
 
 
 def test_import_works_without_optional_dependencies():
@@ -37,13 +37,13 @@ def test_import_works_without_optional_dependencies():
         "import sys\n"
         "for m in ('redis', 'redis.asyncio', 'pymongo', 'pydantic'):\n"
         "    sys.modules[m] = None\n"
-        "import inventorydb\n"
-        "inv = inventorydb.Inventory('todo', inventorydb.InMemoryInventoryStorage())\n"
+        "import objbase\n"
+        "inv = objbase.Inventory('todo', objbase.InMemoryInventoryStorage())\n"
         "inv.save({'id': '1'})\n"
         "assert inv.get('1') == {'id': '1'}\n"
         "for name in ('PydanticInventory', 'AsyncPydanticInventory'):\n"
         "    try:\n"
-        "        getattr(inventorydb, name)\n"
+        "        getattr(objbase, name)\n"
         "    except ImportError:\n"
         "        print('ok')\n"
     )

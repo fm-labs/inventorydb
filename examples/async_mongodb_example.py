@@ -1,13 +1,13 @@
-# Async to-do list backed by MongoDB. Requires `pip install "inventorydb[mongodb]"` and a running MongoDB,
+# Async to-do list backed by MongoDB. Requires `pip install "objbase[mongodb]"` and a running MongoDB,
 # e.g. `docker run --rm -p 27017:27017 mongo:7.0`. Set MONGODB_URI to use a different server.
 import asyncio
 import os
 
 import pymongo
 
-from inventorydb.asyncio.async_inventory import AsyncInventory
-from inventorydb.asyncio.async_mongodb_storage import AsyncMongoDBInventoryStorage
-from inventorydb.interface import Item
+from objbase.asyncio.async_inventory import AsyncInventory
+from objbase.asyncio.async_mongodb_storage import AsyncMongoDBInventoryStorage
+from objbase.interface import Item
 
 
 async def main() -> None:

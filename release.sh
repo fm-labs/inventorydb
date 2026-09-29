@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Build, test and publish inventorydb.
+# Build, test and publish objbase.
 #
 # Publishes to TestPyPI if TESTPYPI_PUBLISH_TOKEN is set, then to PyPI if
 # PYPI_PUBLISH_TOKEN is set. Set ALLOW_DIRTY=1 to release from a working tree
@@ -17,7 +17,7 @@ if [[ -z "${ALLOW_DIRTY:-}" && -n "$(git status --porcelain)" ]]; then
 fi
 
 VERSION=$(uv version --short)
-echo "[INFO] Releasing inventorydb ${VERSION}"
+echo "[INFO] Releasing objbase ${VERSION}"
 
 # Test
 echo "[INFO] Running tests ..."

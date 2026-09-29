@@ -2,7 +2,7 @@
 
 import pytest
 
-from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
+from objbase.storage.sqlite_storage import SQLiteInventoryStorage
 
 # ---------------------------------------------------------------------------
 # Fixtures

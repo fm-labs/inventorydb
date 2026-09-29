@@ -3,7 +3,7 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from inventorydb.interface import InventoryStorage, Item
+from objbase.interface import InventoryStorage, Item
 
 CREATE_TABLE_SQL = """
     CREATE TABLE IF NOT EXISTS items (

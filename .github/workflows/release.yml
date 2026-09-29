@@ -102,7 +102,7 @@ jobs:
     # Trusted publishing, like PyPI below, but configured on test.pypi.org.
     environment:
       name: testpypi
-      url: https://test.pypi.org/project/inventorydb/${{ needs.check-version.outputs.version }}/
+      url: https://test.pypi.org/project/objbase/${{ needs.check-version.outputs.version }}/
     permissions:
       id-token: write
     steps:
@@ -129,14 +129,14 @@ jobs:
         run: |
           for attempt in 1 2 3 4 5 6; do
             if uv run --isolated --no-project --no-cache \
-                --index-url https://test.pypi.org/simple/ --with "inventorydb==${VERSION}" \
-                python -c "import importlib.metadata as m, inventorydb; assert m.version('inventorydb') == '${VERSION}'"; then
+                --index-url https://test.pypi.org/simple/ --with "objbase==${VERSION}" \
+                python -c "import importlib.metadata as m, objbase; assert m.version('objbase') == '${VERSION}'"; then
               exit 0
             fi
-            echo "inventorydb ${VERSION} not installable from TestPyPI yet (attempt ${attempt}), retrying in 20s ..."
+            echo "objbase ${VERSION} not installable from TestPyPI yet (attempt ${attempt}), retrying in 20s ..."
             sleep 20
           done
-          echo "::error::inventorydb ${VERSION} could not be installed from TestPyPI."
+          echo "::error::objbase ${VERSION} could not be installed from TestPyPI."
           exit 1
 
   publish-pypi:
@@ -147,7 +147,7 @@ jobs:
     # (release.yml) and environment on PyPI; no API token is needed.
     environment:
       name: pypi
-      url: https://pypi.org/project/inventorydb/${{ needs.check-version.outputs.version }}/
+      url: https://pypi.org/project/objbase/${{ needs.check-version.outputs.version }}/
     permissions:
       id-token: write
     steps:

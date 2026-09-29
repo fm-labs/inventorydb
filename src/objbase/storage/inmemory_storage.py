@@ -1,7 +1,7 @@
 import copy
 
-from inventorydb.asyncio.async_storage import AsyncInventoryStorage
-from inventorydb.interface import InventoryStorage, Item
+from objbase.asyncio.async_storage import AsyncInventoryStorage
+from objbase.interface import InventoryStorage, Item
 
 
 class InMemoryInventoryStorage(InventoryStorage, AsyncInventoryStorage):

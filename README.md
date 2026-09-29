@@ -25,13 +25,13 @@ Requires Python 3.13+. The core package has no dependencies; in-memory, file-bas
 and SQLite storage work out of the box. Install extras for the other backends:
 
 ```bash
-pip install inventorydb              # core only
-pip install "inventorydb[redis]"     # + redis-py, for (Async)RedisInventoryStorage
-pip install "inventorydb[mongodb]"   # + pymongo, for (Async)MongoDBInventoryStorage
-pip install "inventorydb[pydantic]"  # + pydantic, for (Async)PydanticInventory
-pip install "inventorydb[all]"       # everything
+pip install objbase              # core only
+pip install "objbase[redis]"     # + redis-py, for (Async)RedisInventoryStorage
+pip install "objbase[mongodb]"   # + pymongo, for (Async)MongoDBInventoryStorage
+pip install "objbase[pydantic]"  # + pydantic, for (Async)PydanticInventory
+pip install "objbase[all]"       # everything
 # or with uv
-uv add "inventorydb[redis]"
+uv add "objbase[redis]"
 ```
 
 ---
@@ -41,7 +41,7 @@ uv add "inventorydb[redis]"
 Every item must have an `"id"` field. Use `Inventory` with any storage adapter:
 
 ```python
-from inventorydb import Inventory, InMemoryInventoryStorage
+from objbase import Inventory, InMemoryInventoryStorage
 
 storage = InMemoryInventoryStorage()
 todos = Inventory(item_type="todo", storage=storage)
@@ -59,8 +59,8 @@ todos.delete("1")  # → True
 Swapping the backend requires only changing the `storage` argument — the `Inventory`
 API stays identical.
 
-All public classes can be imported from the top-level `inventorydb` package, as above,
-or from their submodules (e.g. `inventorydb.storage.sqlite_storage`) as in the examples below.
+All public classes can be imported from the top-level `objbase` package, as above,
+or from their submodules (e.g. `objbase.storage.sqlite_storage`) as in the examples below.
 
 ### Behaviour
 
@@ -77,8 +77,8 @@ Errors are raised, not returned:
 | Situation | Exception |
 |---|---|
 | `save` an item without an `id` | `ValueError` |
-| `patch` a missing item | `inventorydb.errors.ItemNotFoundError` (a `LookupError`) |
-| The storage backend reports a failed write | `inventorydb.errors.InventoryError` |
+| `patch` a missing item | `objbase.errors.ItemNotFoundError` (a `LookupError`) |
+| The storage backend reports a failed write | `objbase.errors.InventoryError` |
 
 ---
 
@@ -101,7 +101,7 @@ MongoDB ones use the drivers' native async clients.
 ### In-Memory
 
 ```python
-from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
+from objbase.storage.inmemory_storage import InMemoryInventoryStorage
 
 storage = InMemoryInventoryStorage()
 ```
@@ -113,7 +113,7 @@ sync counterparts.
 ### File-Based (single file per type)
 
 ```python
-from inventorydb.storage.file_storage import FileBasedInventoryStorage
+from objbase.storage.file_storage import FileBasedInventoryStorage
 
 storage = FileBasedInventoryStorage(base_dir="/var/data/myapp")
 ```
@@ -138,7 +138,7 @@ so it can share a directory with the sync adapter.
 ### File-Based (one file per item)
 
 ```python
-from inventorydb.storage.file_storage import DirectoryBasedInventoryStorage
+from objbase.storage.file_storage import DirectoryBasedInventoryStorage
 
 storage = DirectoryBasedInventoryStorage(base_dir="/var/data/myapp")
 ```
@@ -189,7 +189,7 @@ check and the operation. Don't give untrusted users write access to it.
 ### SQLite
 
 ```python
-from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
+from objbase.storage.sqlite_storage import SQLiteInventoryStorage
 
 storage = SQLiteInventoryStorage(db_path="myapp.db")
 ```
@@ -204,7 +204,7 @@ also needs no extra dependencies.
 
 ```python
 import redis
-from inventorydb.storage.redis_storage import RedisInventoryStorage
+from objbase.storage.redis_storage import RedisInventoryStorage
 
 client = redis.Redis(host="localhost", port=6379, decode_responses=True)
 storage = RedisInventoryStorage(redis_client=client)
@@ -222,7 +222,7 @@ and uses the same layout, so sync and async adapters can share data.
 
 ```python
 import pymongo
-from inventorydb.storage.mongodb_storage import MongoDBInventoryStorage
+from objbase.storage.mongodb_storage import MongoDBInventoryStorage
 
 client = pymongo.MongoClient("mongodb://localhost:27017")
 storage = MongoDBInventoryStorage(mongo_client=client)
@@ -243,26 +243,26 @@ Use `PydanticInventory` to validate items against a Pydantic `BaseModel`.
 
 ```python
 from pydantic import BaseModel
-from inventorydb.pydantic import PydanticInventory
-from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
+from objbase.pydantic import PydanticInventory
+from objbase.storage.inmemory_storage import InMemoryInventoryStorage
 
 
 class Todo(BaseModel):
-    id: str
-    title: str
-    done: bool = False
+  id: str
+  title: str
+  done: bool = False
 
 
 todos = PydanticInventory(
-    item_type="todo",
-    storage=InMemoryInventoryStorage(),
-    model_class=Todo,
+  item_type="todo",
+  storage=InMemoryInventoryStorage(),
+  model_class=Todo,
 )
 
 todos.save(Todo(id="1", title="Buy milk"))
 item = todos.get("1")  # returns a Todo instance (or None), not a dict
 if item is not None:
-    print(item.done)  # False
+  print(item.done)  # False
 ```
 
 The model type is inferred from `model_class`, so type checkers know that
@@ -286,12 +286,12 @@ so values Pydantic coerces are stored normalized: patching `{"done": "true"}` st
 takes an async storage adapter:
 
 ```python
-from inventorydb.pydantic import AsyncPydanticInventory
+from objbase.pydantic import AsyncPydanticInventory
 
 todos = AsyncPydanticInventory(
-    item_type="todo",
-    storage=AsyncRedisInventoryStorage(redis.asyncio.Redis()),
-    model_class=Todo,
+  item_type="todo",
+  storage=AsyncRedisInventoryStorage(redis.asyncio.Redis()),
+  model_class=Todo,
 )
 
 await todos.save(Todo(id="1", title="Buy milk"))
@@ -310,8 +310,8 @@ or `InMemoryInventoryStorage` for tests.
 
 ```python
 import redis.asyncio
-from inventorydb.asyncio.async_inventory import AsyncInventory
-from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage
+from objbase.asyncio.async_inventory import AsyncInventory
+from objbase.asyncio.async_redis_storage import AsyncRedisInventoryStorage
 
 client = redis.asyncio.Redis(host="localhost", port=6379)
 todos = AsyncInventory(item_type="todo", storage=AsyncRedisInventoryStorage(client))
@@ -371,15 +371,15 @@ once at startup and tear them down cleanly on shutdown.
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import redis.asyncio
-from inventorydb.asyncio.async_redis_storage import AsyncRedisInventoryStorage
+from objbase.asyncio.async_redis_storage import AsyncRedisInventoryStorage
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    client = redis.asyncio.Redis(host="localhost", port=6379)
-    app.state.storage = AsyncRedisInventoryStorage(redis_client=client)
-    yield
-    await client.aclose()
+  client = redis.asyncio.Redis(host="localhost", port=6379)
+  app.state.storage = AsyncRedisInventoryStorage(redis_client=client)
+  yield
+  await client.aclose()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -392,38 +392,38 @@ and the storage adapter is easy to swap out (e.g. in tests).
 
 ```python
 from fastapi import Depends, HTTPException, Request
-from inventorydb.asyncio.async_inventory import AsyncInventory
-from inventorydb.errors import ItemNotFoundError
+from objbase.asyncio.async_inventory import AsyncInventory
+from objbase.errors import ItemNotFoundError
 
 
 def get_todos(request: Request) -> AsyncInventory:
-    return AsyncInventory(item_type="todo", storage=request.app.state.storage)
+  return AsyncInventory(item_type="todo", storage=request.app.state.storage)
 
 
 @app.get("/todos")
 async def list_todos(todos: AsyncInventory = Depends(get_todos)):
-    return await todos.filter()
+  return await todos.filter()
 
 
 @app.get("/todos/{todo_id}")
 async def get_todo(todo_id: str, todos: AsyncInventory = Depends(get_todos)):
-    item = await todos.get(todo_id)
-    if item is None:
-        raise HTTPException(status_code=404)
-    return item
+  item = await todos.get(todo_id)
+  if item is None:
+    raise HTTPException(status_code=404)
+  return item
 
 
 @app.post("/todos")
 async def create_todo(item: dict, todos: AsyncInventory = Depends(get_todos)):
-    return await todos.save(item)
+  return await todos.save(item)
 
 
 @app.patch("/todos/{todo_id}")
 async def update_todo(todo_id: str, data: dict, todos: AsyncInventory = Depends(get_todos)):
-    try:
-        return await todos.patch(todo_id, data)
-    except ItemNotFoundError:
-        raise HTTPException(status_code=404)
+  try:
+    return await todos.patch(todo_id, data)
+  except ItemNotFoundError:
+    raise HTTPException(status_code=404)
 ```
 
 ### 3. Sync routes with SQLite
@@ -435,26 +435,26 @@ automatically, keeping the event loop unblocked.
 ```python
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, Request
-from inventorydb.inventory import Inventory
-from inventorydb.storage.sqlite_storage import SQLiteInventoryStorage
+from objbase.inventory import Inventory
+from objbase.storage.sqlite_storage import SQLiteInventoryStorage
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.storage = SQLiteInventoryStorage("app.db")
-    yield
+  app.state.storage = SQLiteInventoryStorage("app.db")
+  yield
 
 
 app = FastAPI(lifespan=lifespan)
 
 
 def get_todos(request: Request) -> Inventory:
-    return Inventory(item_type="todo", storage=request.app.state.storage)
+  return Inventory(item_type="todo", storage=request.app.state.storage)
 
 
 @app.get("/todos")  # sync — runs in threadpool
 def list_todos(todos: Inventory = Depends(get_todos)):
-    return todos.filter()
+  return todos.filter()
 ```
 
 ### 4. Override the dependency in tests
@@ -464,15 +464,15 @@ Swap the storage backend for the entire test run without touching any route code
 for Redis. Create it once so data persists across requests:
 
 ```python
-from inventorydb.asyncio.async_inventory import AsyncInventory
-from inventorydb.storage.inmemory_storage import InMemoryInventoryStorage
+from objbase.asyncio.async_inventory import AsyncInventory
+from objbase.storage.inmemory_storage import InMemoryInventoryStorage
 from fastapi.testclient import TestClient
 
 test_storage = InMemoryInventoryStorage()
 
 
 def override_todos():
-    return AsyncInventory(item_type="todo", storage=test_storage)
+  return AsyncInventory(item_type="todo", storage=test_storage)
 
 
 app.dependency_overrides[get_todos] = override_todos
@@ -500,7 +500,7 @@ the right methods is automatically a valid adapter (structural subtyping).
 ### Sync — `InventoryStorage`
 
 ```python
-# inventorydb/interface.py
+# objbase/interface.py
 from typing import Any, Protocol, runtime_checkable
 
 Item = dict[str, Any]
@@ -530,18 +530,22 @@ The order of `keys` and `items` is unspecified.
 ### Async — `AsyncInventoryStorage`
 
 ```python
-# inventorydb/asyncio/async_storage.py
+# objbase/asyncio/async_storage.py
 from typing import Protocol, runtime_checkable
-from inventorydb.interface import Item
+from objbase.interface import Item
 
 
 @runtime_checkable
 class AsyncInventoryStorage(Protocol):
-    async def akeys(self, item_type: str) -> list[str]: ...
-    async def aitems(self, item_type: str) -> list[Item]: ...
-    async def aread(self, item_type: str, id: str) -> Item | None: ...
-    async def awrite(self, item_type: str, item: Item) -> bool: ...
-    async def adelete(self, item_type: str, id: str) -> bool: ...
+  async def akeys(self, item_type: str) -> list[str]: ...
+
+  async def aitems(self, item_type: str) -> list[Item]: ...
+
+  async def aread(self, item_type: str, id: str) -> Item | None: ...
+
+  async def awrite(self, item_type: str, item: Item) -> bool: ...
+
+  async def adelete(self, item_type: str, id: str) -> bool: ...
 ```
 
 Same contract as the sync protocol, with every method a coroutine.
@@ -550,7 +554,7 @@ Same contract as the sync protocol, with every method a coroutine.
 
 Because `Protocol` uses structural subtyping, a third-party class is a valid
 adapter as long as it has the right methods — it does not need to import or
-subclass anything from `inventorydb`:
+subclass anything from `objbase`:
 
 ```python
 class MyCustomStorage:
@@ -575,11 +579,11 @@ You can still inherit from the Protocol if you want IDE support for "find all
 implementations" or early feedback from a type checker when a method is missing:
 
 ```python
-from inventorydb.interface import InventoryStorage
+from objbase.interface import InventoryStorage
 
 
 class MyCustomStorage(InventoryStorage):  # explicit, but optional
-    ...
+  ...
 ```
 
 ### Runtime checks with `isinstance`
@@ -589,7 +593,7 @@ object has the required methods. This checks method names only, not signatures;
 use a type checker for full verification:
 
 ```python
-from inventorydb.interface import InventoryStorage
+from objbase.interface import InventoryStorage
 
 isinstance(MyCustomStorage(), InventoryStorage)  # True
 isinstance("not a storage", InventoryStorage)  # False
@@ -602,7 +606,7 @@ isinstance("not a storage", InventoryStorage)  # False
 The package ships a `py.typed` marker, so mypy, Pyright and IDEs use its type
 hints. The library itself is checked with `mypy --strict`.
 
-- Items are typed as `inventorydb.Item`, an alias for `dict[str, Any]`.
+- Items are typed as `objbase.Item`, an alias for `dict[str, Any]`.
 - `Inventory` and `AsyncInventory` accept and return `Item`; `get` returns `Item | None`.
 - `PydanticInventory` and `AsyncPydanticInventory` are generic over their model class, which is inferred from
   `model_class` (see [Pydantic Models](#pydantic-models)).
@@ -730,7 +734,7 @@ The workflow then:
 
 One-time setup:
 
-- On [PyPI](https://pypi.org), add a trusted publisher for the `fm-labs/inventorydb`
+- On [PyPI](https://pypi.org), add a trusted publisher for the `fm-labs/objbase`
   repository with workflow `release.yml` and environment `pypi`.
 - On [TestPyPI](https://test.pypi.org), add the same trusted publisher with
   environment `testpypi`.
