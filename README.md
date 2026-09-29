@@ -248,21 +248,21 @@ from objbase.storage.inmemory_storage import InMemoryInventoryStorage
 
 
 class Todo(BaseModel):
-  id: str
-  title: str
-  done: bool = False
+    id: str
+    title: str
+    done: bool = False
 
 
 todos = PydanticInventory(
-  item_type="todo",
-  storage=InMemoryInventoryStorage(),
-  model_class=Todo,
+    item_type="todo",
+    storage=InMemoryInventoryStorage(),
+    model_class=Todo,
 )
 
 todos.save(Todo(id="1", title="Buy milk"))
 item = todos.get("1")  # returns a Todo instance (or None), not a dict
 if item is not None:
-  print(item.done)  # False
+    print(item.done)  # False
 ```
 
 The model type is inferred from `model_class`, so type checkers know that
@@ -289,9 +289,9 @@ takes an async storage adapter:
 from objbase.pydantic import AsyncPydanticInventory
 
 todos = AsyncPydanticInventory(
-  item_type="todo",
-  storage=AsyncRedisInventoryStorage(redis.asyncio.Redis()),
-  model_class=Todo,
+    item_type="todo",
+    storage=AsyncRedisInventoryStorage(redis.asyncio.Redis()),
+    model_class=Todo,
 )
 
 await todos.save(Todo(id="1", title="Buy milk"))
@@ -376,10 +376,10 @@ from objbase.asyncio.async_redis_storage import AsyncRedisInventoryStorage
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-  client = redis.asyncio.Redis(host="localhost", port=6379)
-  app.state.storage = AsyncRedisInventoryStorage(redis_client=client)
-  yield
-  await client.aclose()
+    client = redis.asyncio.Redis(host="localhost", port=6379)
+    app.state.storage = AsyncRedisInventoryStorage(redis_client=client)
+    yield
+    await client.aclose()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -397,33 +397,33 @@ from objbase.errors import ItemNotFoundError
 
 
 def get_todos(request: Request) -> AsyncInventory:
-  return AsyncInventory(item_type="todo", storage=request.app.state.storage)
+    return AsyncInventory(item_type="todo", storage=request.app.state.storage)
 
 
 @app.get("/todos")
 async def list_todos(todos: AsyncInventory = Depends(get_todos)):
-  return await todos.filter()
+    return await todos.filter()
 
 
 @app.get("/todos/{todo_id}")
 async def get_todo(todo_id: str, todos: AsyncInventory = Depends(get_todos)):
-  item = await todos.get(todo_id)
-  if item is None:
-    raise HTTPException(status_code=404)
-  return item
+    item = await todos.get(todo_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+    return item
 
 
 @app.post("/todos")
 async def create_todo(item: dict, todos: AsyncInventory = Depends(get_todos)):
-  return await todos.save(item)
+    return await todos.save(item)
 
 
 @app.patch("/todos/{todo_id}")
 async def update_todo(todo_id: str, data: dict, todos: AsyncInventory = Depends(get_todos)):
-  try:
-    return await todos.patch(todo_id, data)
-  except ItemNotFoundError:
-    raise HTTPException(status_code=404)
+    try:
+        return await todos.patch(todo_id, data)
+    except ItemNotFoundError:
+        raise HTTPException(status_code=404)
 ```
 
 ### 3. Sync routes with SQLite
@@ -441,20 +441,20 @@ from objbase.storage.sqlite_storage import SQLiteInventoryStorage
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-  app.state.storage = SQLiteInventoryStorage("app.db")
-  yield
+    app.state.storage = SQLiteInventoryStorage("app.db")
+    yield
 
 
 app = FastAPI(lifespan=lifespan)
 
 
 def get_todos(request: Request) -> Inventory:
-  return Inventory(item_type="todo", storage=request.app.state.storage)
+    return Inventory(item_type="todo", storage=request.app.state.storage)
 
 
 @app.get("/todos")  # sync — runs in threadpool
 def list_todos(todos: Inventory = Depends(get_todos)):
-  return todos.filter()
+    return todos.filter()
 ```
 
 ### 4. Override the dependency in tests
@@ -472,7 +472,7 @@ test_storage = InMemoryInventoryStorage()
 
 
 def override_todos():
-  return AsyncInventory(item_type="todo", storage=test_storage)
+    return AsyncInventory(item_type="todo", storage=test_storage)
 
 
 app.dependency_overrides[get_todos] = override_todos
@@ -537,15 +537,15 @@ from objbase.interface import Item
 
 @runtime_checkable
 class AsyncInventoryStorage(Protocol):
-  async def akeys(self, item_type: str) -> list[str]: ...
+    async def akeys(self, item_type: str) -> list[str]: ...
 
-  async def aitems(self, item_type: str) -> list[Item]: ...
+    async def aitems(self, item_type: str) -> list[Item]: ...
 
-  async def aread(self, item_type: str, id: str) -> Item | None: ...
+    async def aread(self, item_type: str, id: str) -> Item | None: ...
 
-  async def awrite(self, item_type: str, item: Item) -> bool: ...
+    async def awrite(self, item_type: str, item: Item) -> bool: ...
 
-  async def adelete(self, item_type: str, id: str) -> bool: ...
+    async def adelete(self, item_type: str, id: str) -> bool: ...
 ```
 
 Same contract as the sync protocol, with every method a coroutine.
@@ -583,7 +583,7 @@ from objbase.interface import InventoryStorage
 
 
 class MyCustomStorage(InventoryStorage):  # explicit, but optional
-  ...
+    ...
 ```
 
 ### Runtime checks with `isinstance`
