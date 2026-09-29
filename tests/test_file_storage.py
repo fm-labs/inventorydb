@@ -391,6 +391,14 @@ class TestFileStorageSymlinkContainment:
             storage.write("todo", {"id": "1"})
             assert storage.read("todo", "1") == {"id": "1"}
 
+    def test_extended_length_prefix_from_realpath_is_ignored(self, dir_storage, monkeypatch):
+        # On Windows, realpath() can return "\\?\C:\..." for a missing file when its
+        # parent directory is created by another thread while it's resolving.
+        real_realpath = os.path.realpath
+        monkeypatch.setattr(sys, "platform", "win32")
+        monkeypatch.setattr(os.path, "realpath", lambda p: "\\\\?\\" + real_realpath(p))
+        assert dir_storage._item_path("todo", "1").endswith("1.json")
+
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows path semantics")
 class TestFileStorageWindowsNames:

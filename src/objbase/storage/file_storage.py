@@ -23,6 +23,21 @@ def _safe_name(name: str, kind: str) -> str:
     return name
 
 
+def _strip_extended_prefix(path: str) -> str:
+    """Remove a Windows extended-length prefix (``\\\\?\\`` or ``\\\\?\\UNC\\``) from ``path``.
+
+    ``os.path.realpath`` can leave the prefix on a path that doesn't exist yet when
+    its parent directory appears while it's resolving (another thread creating a
+    type directory), so the result wouldn't compare equal to the unprefixed base.
+    """
+    if sys.platform == "win32":
+        if path.startswith("\\\\?\\UNC\\"):
+            return "\\\\" + path[len("\\\\?\\UNC\\") :]
+        if path.startswith("\\\\?\\"):
+            return path[len("\\\\?\\") :]
+    return path
+
+
 def _contained_path(real_base: str, *parts: str) -> str:
     """Join ``parts`` onto ``real_base``, checking that the real path of the result lies inside ``real_base``.
 
@@ -35,8 +50,8 @@ def _contained_path(real_base: str, *parts: str) -> str:
     in a symlink between the check and the file operation.
     """
     path = os.path.join(real_base, *parts)
-    real_path = os.path.normcase(os.path.realpath(path))
-    base = os.path.normcase(real_base)
+    real_path = os.path.normcase(_strip_extended_prefix(os.path.realpath(path)))
+    base = os.path.normcase(_strip_extended_prefix(real_base))
     try:
         inside = real_path != base and os.path.commonpath([base, real_path]) == base
     except ValueError:  # on different drives (Windows)
